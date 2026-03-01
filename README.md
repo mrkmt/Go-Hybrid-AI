@@ -1,25 +1,49 @@
-# Go-Hybrid AI
+# Go-Hybrid AI (v1.2.0)
 
-This repository contains the core components of the **Go-Hybrid AI** local-first testing platform. It combines high-speed web automation with advanced AI triage and diagnostic capabilities.
+**Go-Hybrid AI** is a high-speed, local-first forensic testing platform. It transforms manual testing into automated "investigations" using a unique Digital Detective methodology that bridges **Admin Ground Truth** (Standards) and **Current Executions** (Tests).
 
-## Structure
+## 🕵️‍♂️ Core Features
 
-- **`/backend`**:
-  - `/api`: Node.js Express server with PostgreSQL integration.
-  - `/validator`: TypeScript business-rule engine.
-- **`/frontend`**:
-  - `/kb-ui`: Knowledge Base dashboard (React + Vite).
-- **`/extension`**:
-  - `/recorder`: Chrome Extension (MV3) for capturing actions.
-- **`/testing`**:
-  - `/replayer`: Playwright replayer for executing recorded flows.
-  - `/scripts`: Performance (k6) and API (Postman) test scripts.
+- **Hybrid AI Bridge:** Combines **Local AI (Ollama)** for data privacy and **Cloud AI (Gemini)** for high-level reasoning and policy auditing.
+- **Forensic Dashboard:** Side-by-side 3-frame visual audit (Admin vs. Manual vs. Automated).
+- **Real-time Streaming:** Live WebSocket feed of recording steps appearing instantly in the dashboard.
+- **Object Repository:** Centralized UI element management with **Self-Healing** AI repair.
+- **Multi-Vector Ingestion:** Unified API to ingest intelligence from **Playwright, Selenium, Postman, and JMeter**.
+- **Specialized Forensic Units:** Built-in logic for auditing HR modules like Payroll, Attendance, and Leave.
 
-## Setup
+## 🏗️ Technical Stack
 
-1. **Prerequisites**: Node.js, PostgreSQL, MinIO, Ollama.
-2. **Install Dependencies**: `npm install`
-3. **Database**: Create a database named `ai_testing_platform` in PostgreSQL. Configure credentials in `.env`.
-4. **Run API**: `npm run start-api`
-5. **Run Dashboard**: `npm run start-kb`
-6. **Run Tests**: `npm test`
+- **Backend:** Node.js, Express, TypeScript, PostgreSQL.
+- **Frontend:** React, Vite (Cyber-Security Dark Theme).
+- **Storage:** MinIO (Local S3-compatible asset storage).
+- **AI:** Ollama (Qwen 2.5) & Gemini 1.5 Flash.
+- **Extension:** Chrome MV3 Recorder with URL-based autodetection.
+
+## 🚦 Quick Setup
+
+1. **Prerequisites:** Install Node.js, PostgreSQL, MinIO, and Ollama.
+2. **Environment:** Copy `.env.example` to `.env` and configure your credentials.
+3. **Install:** 
+   ```bash
+   npm install
+   cd backend && npm install
+   cd ../frontend/kb-ui && npm install
+   ```
+4. **Database:** Initialize the schema:
+   ```bash
+   npm run init-db
+   ```
+5. **Launch:**
+   - Start API: `npm run start-api`
+   - Start Dashboard: `npm run start-kb`
+   - Load Extension: Load `extension/recorder` into Chrome via Developer Mode.
+
+## 🔎 Investigation Workflow
+
+1. **Capture:** Record a "Perfect" run and mark it as **Admin Standard** in the dashboard.
+2. **Execute:** Run automated tests or capture manual failures.
+3. **Audit:** Use the CLI (`gh-ai audit`) or Dashboard to compare executions against the Standard.
+4. **Verdict:** Let the Hybrid AI issue a **[GUILTY]** or **[CLEAR]** verdict based on your company's policy MD files.
+
+---
+*Developed for high-integrity software environments. Privacy-first. Local-first.*
