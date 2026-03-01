@@ -19,7 +19,7 @@ export class ObjectRepoService {
         name?: string,
         appProfile?: string
     }): Promise<string> {
-        const { selector, name, appProfile = 'globalhr' } = data;
+        const { selector, name, appProfile = 'default' } = data;
         const slug = selector.replace(/[^a-z0-9]/gi, '-').toLowerCase().slice(0, 50);
         const objectId = `obj-${slug}`;
 

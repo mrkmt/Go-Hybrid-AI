@@ -28,6 +28,7 @@ export type DbClient = {
 // Zod validation schemas
 const RecordingSchema = z.object({
     sessionId: z.string().optional(),
+    module: z.string().default('default'), // Changed from 'globalhr' to 'default'
     appVersion: z.string().optional(),
     environment: z.record(z.string(), z.unknown()).optional(),
     steps: z.array(z.unknown()).min(1, 'Steps array cannot be empty'),
@@ -164,7 +165,7 @@ export async function initDb(pool: DbClient) {
         CREATE TABLE IF NOT EXISTS object_repository (
             id VARCHAR(255) PRIMARY KEY,
             name VARCHAR(255),
-            app_profile VARCHAR(50) DEFAULT 'globalhr',
+            app_profile VARCHAR(50) DEFAULT 'default',
             platform VARCHAR(50) DEFAULT 'web',
             selector_primary TEXT NOT NULL,
             selector_fallbacks JSONB DEFAULT '[]',
@@ -648,7 +649,7 @@ export function createApp(deps: { pool: DbClient }) {
                 details: validationResult.error.issues
             });
         }
-        const { sessionId, appVersion, environment, steps, networkRequests, annotations, expectedResults } = validationResult.data;
+        const { sessionId, module, appVersion, environment, steps, networkRequests, annotations, expectedResults } = validationResult.data;
 
         const id = uuidv4();
 
@@ -659,7 +660,7 @@ export function createApp(deps: { pool: DbClient }) {
                     const objectId = await ObjectRepoService.ensureObject(deps.pool, {
                         selector: step.selector,
                         name: step.elementName,
-                        appProfile: appVersion || 'globalhr'
+                        appProfile: module // Correctly using module name
                     });
                     return { ...step, target_object_id: objectId };
                 }

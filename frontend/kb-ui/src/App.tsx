@@ -90,26 +90,37 @@ function App() {
                 <p className="explanation">{auditReport.cloudVerdict || auditReport.explanation}</p>
               </div>
 
-              {/* Side-by-Side Comparison */}
-              <div className="comparison-grid">
+              {/* 3-Way Comparison Grid */}
+              <div className="comparison-grid three-way">
                 <div className="frame">
-                  <div className="frame-label">ADMIN GROUND TRUTH (STANDARD)</div>
+                  <div className="frame-label">1. ADMIN GROUND TRUTH</div>
                   <div className="media-container">
                     {auditReport.assets.standard.screenshot ? (
                       <img src={auditReport.assets.standard.screenshot} alt="Standard" />
                     ) : (
-                      <div className="placeholder">NO IMAGE EVIDENCE</div>
+                      <div className="placeholder">NO GOLDEN IMAGE</div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="frame manual">
+                  <div className="frame-label">2. MANUAL RECORDING (USER)</div>
+                  <div className="media-container">
+                    {auditReport.assets.execution.manual ? (
+                      <img src={auditReport.assets.execution.manual} alt="Manual" />
+                    ) : (
+                      <div className="placeholder">NO MANUAL SNAPSHOT</div>
                     )}
                   </div>
                 </div>
 
                 <div className="frame failure">
-                  <div className="frame-label">CURRENT EXECUTION (FAILURE)</div>
+                  <div className="frame-label">3. AUTOMATED REPLAY (SYSTEM)</div>
                   <div className="media-container">
                     {auditReport.assets.execution.screenshot ? (
                       <img src={auditReport.assets.execution.screenshot} alt="Failure" />
                     ) : (
-                      <div className="placeholder">NO IMAGE EVIDENCE</div>
+                      <div className="placeholder">NO REPLAY EVIDENCE</div>
                     )}
                   </div>
                 </div>

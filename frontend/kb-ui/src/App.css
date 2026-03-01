@@ -115,6 +115,18 @@ body {
   margin-bottom: 2rem;
 }
 
+.comparison-grid.three-way {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.frame.manual {
+  border-color: var(--accent-yellow);
+}
+
+.frame.manual .frame-label {
+  color: var(--accent-yellow);
+}
+
 .frame {
   border: 1px solid var(--border-color);
   background: black;
