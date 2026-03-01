@@ -1,5 +1,33 @@
 import request = require('supertest');
 import { createApp, initDb, type DbClient } from './app';
+import { ObjectRepoService } from './ObjectRepoService';
+
+// Mock ObjectRepoService
+jest.mock('./ObjectRepoService', () => ({
+    ObjectRepoService: {
+        ensureObject: jest.fn().mockResolvedValue('obj-test-id')
+    }
+}));
+
+// Mock MinioService to avoid network calls during tests
+jest.mock('./MinioService', () => ({
+    minioService: {
+        bucketExists: jest.fn().mockResolvedValue(true),
+        makeBucket: jest.fn().mockResolvedValue(true),
+        uploadFile: jest.fn().mockResolvedValue('test-path'),
+        getPresignedUrl: jest.fn().mockResolvedValue('http://mock-url'),
+        deleteFile: jest.fn().mockResolvedValue(undefined),
+        getFileBuffer: jest.fn().mockResolvedValue(Buffer.from('test-data'))
+    }
+}));
+
+// Mock LocalAIService to avoid LLM calls
+jest.mock('./LocalAIService', () => ({
+    LocalAIService: {
+        suggestRootCause: jest.fn().mockResolvedValue({ response: 'mock-suggestion', modelUsed: 'mock-model', status: 'success' }),
+        generateTest: jest.fn().mockResolvedValue({ response: 'mock-test-code', modelUsed: 'mock-model', status: 'success', agent: 'mock-agent' })
+    }
+}));
 
 /**
  * Mock database client for testing
@@ -234,7 +262,7 @@ describe('Backend API - Search', () => {
         // Mock KnowledgeService to avoid file system access during tests
         jest.spyOn(require('./KnowledgeService').KnowledgeService, 'findRelevantDocs')
             .mockResolvedValue([{ path: 'test.md', title: 'Test', snippet: 'Test snippet', score: 1 }]);
-        
+
         const { client } = createMockPool();
         const app = createApp({ pool: client });
 

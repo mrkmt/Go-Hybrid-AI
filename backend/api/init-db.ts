@@ -11,15 +11,17 @@ async function initDatabase() {
         port: config.postgres.port,
     });
 
+    const dbName = config.postgres.database;
+
     try {
         await adminClient.connect();
-        const res = await adminClient.query(`SELECT 1 FROM pg_database WHERE datname = 'ai_testing_platform'`);
+        const res = await adminClient.query(`SELECT 1 FROM pg_database WHERE datname = $1`, [dbName]);
         if (res.rowCount === 0) {
-            console.log('[Init] Creating database: ai_testing_platform...');
-            await adminClient.query('CREATE DATABASE ai_testing_platform');
+            console.log(`[Init] Creating database: ${dbName}...`);
+            await adminClient.query(`CREATE DATABASE ${dbName}`);
             console.log('[Init] Database created successfully.');
         } else {
-            console.log('[Init] Database ai_testing_platform already exists.');
+            console.log(`[Init] Database ${dbName} already exists.`);
         }
     } catch (err: any) {
         console.warn('[Init] DB Creation Warning (likely permission related):', err.message);
@@ -31,13 +33,13 @@ async function initDatabase() {
     const pool = new Pool({
         user: config.postgres.user,
         host: config.postgres.host,
-        database: config.postgres.database,
+        database: dbName,
         password: config.postgres.password,
         port: config.postgres.port,
     });
 
     try {
-        console.log('[Init] Connecting to ai_testing_platform to initialize tables...');
+        console.log(`[Init] Connecting to ${dbName} to initialize tables...`);
         
         await pool.query(`
             CREATE TABLE IF NOT EXISTS recordings (

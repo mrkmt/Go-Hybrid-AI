@@ -1,5 +1,3 @@
-import { DetectiveDispatcher } from '../api/DetectiveDispatcher';
-
 export interface LeaveCalculationResult {
     staffId: string;
     requestedDays: number;

@@ -56,6 +56,12 @@
   "jest": {
     "preset": "ts-jest",
     "testEnvironment": "node",
+    "roots": [
+      "<rootDir>/backend"
+    ],
+    "modulePathIgnorePatterns": [
+      "<rootDir>/backend/node_modules"
+    ],
     "collectCoverageFrom": [
       "backend/**/*.ts",
       "!backend/**/node_modules/**"
