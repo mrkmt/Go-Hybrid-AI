@@ -70,7 +70,5 @@ playwright-report/
 test-results/
 .playwright/
 
-# 8. Python Cache
-__pycache__/
-*.py[cod]
-*$py.class
+# 9. Local Documentation (Excluded from GitHub)
+docs/

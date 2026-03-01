@@ -35,7 +35,13 @@ export class LocalAIService {
     /**
      * Generates a triage suggestion using skills and agentic orchestration.
      */
-    static async suggestRootCause(context: { steps: any[], error: string, appVersion: string }): Promise<AgentResult> {
+    static async suggestRootCause(context: { 
+        steps: any[], 
+        error: string, 
+        appVersion: string,
+        annotations?: any[],
+        expectedResults?: any
+    }): Promise<AgentResult> {
         const cacheKey = `triage:${this.hash(context.error)}:${context.appVersion}`;
         const cached = this.responseCache.get(cacheKey);
         
@@ -52,7 +58,9 @@ export class LocalAIService {
         // Use multi-agent approach for more sophisticated analysis
         const result = await AgentOrchestrator.executeRootCauseAnalysis(
             context.error, 
-            context.steps
+            context.steps,
+            context.annotations,
+            context.expectedResults
         );
         
         // Cache the result

@@ -135,12 +135,19 @@ export class AgentOrchestrator {
     /**
      * Executes a specialized root cause analysis with multi-agent collaboration.
      */
-    static async executeRootCauseAnalysis(error: string, steps: any[]): Promise<AgentResult> {
+    static async executeRootCauseAnalysis(
+        error: string, 
+        steps: any[],
+        annotations?: any[],
+        expectedResults?: any
+    ): Promise<AgentResult> {
         const multiAgentTask: MultiAgentTask = {
-            task: "Analyze the provided error and test steps to identify the root cause and suggest a solution",
+            task: "Analyze the provided error, test steps, user annotations, and expected results to identify the root cause and suggest a solution",
             context: {
                 error: error,
                 steps: steps,
+                annotations: annotations || [],
+                expectedResults: expectedResults || {},
                 timestamp: new Date().toISOString()
             },
             agents: [AgentType.ANALYST]

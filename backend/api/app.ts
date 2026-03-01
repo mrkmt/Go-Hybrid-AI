@@ -29,6 +29,8 @@ const RecordingSchema = z.object({
     environment: z.record(z.string(), z.unknown()).optional(),
     steps: z.array(z.unknown()).min(1, 'Steps array cannot be empty'),
     networkRequests: z.array(z.unknown()).optional(),
+    annotations: z.array(z.unknown()).optional(),
+    expectedResults: z.record(z.string(), z.unknown()).optional(),
 });
 
 const TriageSchema = z.object({
@@ -115,6 +117,9 @@ export async function initDb(pool: DbClient) {
             network_requests JSONB,
             video_url TEXT,
             screenshot_url TEXT,
+            manual_snapshot_url TEXT,
+            annotations JSONB DEFAULT '[]',
+            expected_results JSONB DEFAULT '{}',
             user_id VARCHAR(255) DEFAULT 'public',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
@@ -124,6 +129,9 @@ export async function initDb(pool: DbClient) {
     try {
         await pool.query(`ALTER TABLE recordings ADD COLUMN IF NOT EXISTS video_url TEXT;`);
         await pool.query(`ALTER TABLE recordings ADD COLUMN IF NOT EXISTS screenshot_url TEXT;`);
+        await pool.query(`ALTER TABLE recordings ADD COLUMN IF NOT EXISTS manual_snapshot_url TEXT;`);
+        await pool.query(`ALTER TABLE recordings ADD COLUMN IF NOT EXISTS annotations JSONB DEFAULT '[]';`);
+        await pool.query(`ALTER TABLE recordings ADD COLUMN IF NOT EXISTS expected_results JSONB DEFAULT '{}';`);
     } catch (e) {
         console.warn('Could not add asset columns (might already exist):', e);
     }
@@ -377,7 +385,9 @@ export function createApp(deps: { pool: DbClient }) {
             const result = await LocalAIService.suggestRootCause({
                 steps: recording.steps,
                 error,
-                appVersion: recording.app_version
+                appVersion: recording.app_version,
+                annotations: recording.annotations,
+                expectedResults: recording.expected_results
             });
 
             await deps.pool.query(
@@ -558,13 +568,16 @@ export function createApp(deps: { pool: DbClient }) {
                 details: validationResult.error.issues
             });
         }
-        const { sessionId, appVersion, environment, steps, networkRequests } = validationResult.data;
+        const { sessionId, appVersion, environment, steps, networkRequests, annotations, expectedResults } = validationResult.data;
 
         const id = uuidv4();
 
         try {
             await deps.pool.query(
-                'INSERT INTO recordings (id, session_id, app_version, environment, steps, network_requests, user_id) VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6::jsonb, $7)',
+                `INSERT INTO recordings (
+                    id, session_id, app_version, environment, steps, network_requests, 
+                    annotations, expected_results, user_id
+                ) VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6::jsonb, $7::jsonb, $8::jsonb, $9)`,
                 [
                     id,
                     sessionId || '',
@@ -572,6 +585,8 @@ export function createApp(deps: { pool: DbClient }) {
                     JSON.stringify(environment || {}),
                     JSON.stringify(steps),
                     JSON.stringify(networkRequests || []),
+                    JSON.stringify(annotations || []),
+                    JSON.stringify(expectedResults || {}),
                     'public'
                 ]
             );
