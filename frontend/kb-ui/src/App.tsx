@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 import './App.css';
 
 interface Recording {
@@ -18,6 +20,7 @@ interface AuditReport {
     execution: { screenshot: string; video: string; manual: string };
     standard: { screenshot: string; video: string };
   };
+  aiActions?: any[];
   policyReference?: string;
 }
 
@@ -29,12 +32,11 @@ function App() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Connect to WebSocket for live streaming
     const socket = new WebSocket('ws://localhost:3000');
     socket.onmessage = (event) => {
       const data = JSON.parse(event.data);
       if (data.type === 'LIVE_STEP') {
-        setLiveSteps(prev => [data.step, ...prev].slice(0, 10)); // Keep last 10 steps
+        setLiveSteps(prev => [data.step, ...prev].slice(0, 10));
       }
     };
     return () => socket.close();
@@ -51,9 +53,8 @@ function App() {
   }, []);
 
   const markAsStandard = async (id: string) => {
-    if (!confirm('Mark this case as the official Admin Ground Truth for this module?')) return;
+    if (!confirm('Mark this case as the official Admin Ground Truth?')) return;
     await fetch(`http://localhost:3000/api/recordings/${id}/make-standard`, { method: 'PUT' });
-    alert('Case elevated to Admin Standard');
     fetchRecordings();
   };
 
@@ -62,8 +63,7 @@ function App() {
     try {
       const selected = recordings.find(r => r.id === caseId);
       const standard = recordings.find(r => r.is_admin && r.app_version === selected?.app_version);
-      
-      const standardId = standard?.id || caseId; // Fallback to self if no standard found
+      const standardId = standard?.id || caseId;
 
       const res = await fetch(`http://localhost:3000/api/audit/${caseId}?standardId=${standardId}`);
       const data = await res.json();
@@ -76,138 +76,125 @@ function App() {
     }
   };
 
+  const exportToPDF = () => {
+    const input = document.getElementById('forensic-report');
+    if (!input) return;
+    
+    setLoading(true);
+    html2canvas(input, { useCORS: true, backgroundColor: '#0f172a', scale: 2 }).then((canvas) => {
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`investigation-${selectedCase?.slice(0,8)}.pdf`);
+      setLoading(false);
+    });
+  };
+
   return (
     <div className="dashboard dark-theme">
-      {/* Header */}
       <header className="header">
         <div className="logo">GO-HYBRID AI <span className="tag">FORENSIC UNIT</span></div>
         <div className="status-bar">
-          <span className="status-item">စနစ်: အဆင်သင့် (ONLINE)</span>
-          <span className="status-item">OLLAMA: အသင့်ရှိ (READY)</span>
-          <span className="status-item">GEMINI: ချိတ်ဆက်ပြီး (CONNECTED)</span>
+          <span className="status-item">စနစ်: အဆင်သင့်</span>
+          <span className="status-item">OLLAMA: အသင့်ရှိ</span>
+          {auditReport && (
+            <button className="btn-export" onClick={exportToPDF}>EXPORT REPORT</button>
+          )}
         </div>
       </header>
 
       <div className="main-layout">
-        {/* Sidebar: Investigation List */}
         <aside className="sidebar">
-          {/* Live Feed */}
           <div className="live-feed">
-            <h3 className="live-pulse">LIVE INVESTIGATION STREAM</h3>
+            <h3 className="live-pulse">LIVE STREAM</h3>
             <div className="live-steps">
-              {liveSteps.length === 0 && <div className="no-live">WAITING FOR DATA...</div>}
+              {liveSteps.length === 0 && <div className="no-live">WAITING...</div>}
               {liveSteps.map((step, i) => (
                 <div key={i} className="live-step-item">
-                  <span className="live-action">{step.action.toUpperCase()}</span>
-                  <span className="live-element">{step.elementName || step.selector.slice(0, 15)}...</span>
+                  <span className="live-action">{step.action}</span>
+                  <span className="live-element">{step.elementName || 'UI'}</span>
                 </div>
               ))}
             </div>
           </div>
-
           <hr className="divider" />
-
-          <h3>CASES FOR AUDIT</h3>
+          <h3>CASES</h3>
           <div className="case-list">
             {recordings.map(r => (
-              <div 
-                key={r.id} 
-                className={`case-item ${selectedCase === r.id ? 'active' : ''} ${r.is_admin ? 'standard-item' : ''}`}
-                onClick={() => runAudit(r.id)}
-              >
+              <div key={r.id} className={`case-item ${selectedCase === r.id ? 'active' : ''} ${r.is_admin ? 'standard-item' : ''}`} onClick={() => runAudit(r.id)}>
                 <div className="case-header">
-                  <div className="case-id">ID: {r.id.slice(0, 8)}...</div>
+                  <div className="case-id">{r.id.slice(0, 8)}</div>
                   {r.is_admin && <span className="admin-badge">ADMIN</span>}
                 </div>
-                <div className="case-date">{new Date(r.created_at).toLocaleString()}</div>
-                <div className="case-module">Module: {r.app_version}</div>
+                <div className="case-module">{r.app_version}</div>
               </div>
             ))}
           </div>
         </aside>
 
-        {/* Main Content: Forensic View */}
-        <main className="forensic-view">
+        <main className="forensic-view" id="forensic-report">
           {loading ? (
-            <div className="loading-spinner">ANALYZING EVIDENCE...</div>
+            <div className="loading-spinner">PROCESSING EVIDENCE...</div>
           ) : auditReport ? (
             <>
-              {/* Top Panel: Verdict */}
               <div className={`verdict-panel ${auditReport.verdict}`}>
                 <div className="verdict-header">
                   <h2>VERDICT: {auditReport.verdict}</h2>
-                  <button className="btn-standard" onClick={() => markAsStandard(selectedCase!)}>
-                    MARK AS ADMIN STANDARD
-                  </button>
+                  {!recordings.find(r => r.id === selectedCase)?.is_admin && (
+                    <button className="btn-standard" onClick={() => markAsStandard(selectedCase!)}>MAKE ADMIN STANDARD</button>
+                  )}
                 </div>
                 <p className="explanation">{auditReport.cloudVerdict || auditReport.explanation}</p>
               </div>
 
-              {/* 3-Way Comparison Grid */}
               <div className="comparison-grid three-way">
                 <div className="frame">
-                  <div className="frame-label">1. ADMIN GROUND TRUTH</div>
+                  <div className="frame-label">ADMIN STANDARD</div>
                   <div className="media-container">
-                    {auditReport.assets.standard.screenshot ? (
-                      <img src={auditReport.assets.standard.screenshot} alt="Standard" />
-                    ) : (
-                      <div className="placeholder">NO GOLDEN IMAGE</div>
-                    )}
+                    {auditReport.assets.standard.screenshot ? <img src={auditReport.assets.standard.screenshot} alt="Standard" /> : <div className="placeholder">NO IMAGE</div>}
                   </div>
                 </div>
-
                 <div className="frame manual">
-                  <div className="frame-label">2. MANUAL RECORDING (USER)</div>
+                  <div className="frame-label">MANUAL (USER)</div>
                   <div className="media-container">
-                    {auditReport.assets.execution.manual ? (
-                      <img src={auditReport.assets.execution.manual} alt="Manual" />
-                    ) : (
-                      <div className="placeholder">NO MANUAL SNAPSHOT</div>
-                    )}
+                    {auditReport.assets.execution.manual ? <img src={auditReport.assets.execution.manual} alt="Manual" /> : <div className="placeholder">NO IMAGE</div>}
                   </div>
                 </div>
-
                 <div className="frame failure">
-                  <div className="frame-label">3. AUTOMATED REPLAY (SYSTEM)</div>
+                  <div className="frame-label">REPLAY (SYSTEM)</div>
                   <div className="media-container">
-                    {auditReport.assets.execution.screenshot ? (
-                      <img src={auditReport.assets.execution.screenshot} alt="Failure" />
-                    ) : (
-                      <div className="placeholder">NO REPLAY EVIDENCE</div>
-                    )}
+                    {auditReport.assets.execution.screenshot ? <img src={auditReport.assets.execution.screenshot} alt="Replay" /> : <div className="placeholder">NO IMAGE</div>}
                   </div>
                 </div>
               </div>
 
-              {/* Bottom Panels */}
               <div className="details-grid">
                 <div className="panel action-log-panel">
-                  <h3>AI AUTONOMOUS ACTIONS</h3>
+                  <h3>AI ACTIONS</h3>
                   <div className="action-list">
-                    {!auditReport.aiActions?.length && <div className="no-actions">NO ACTIONS TAKEN YET</div>}
                     {auditReport.aiActions?.map((action, i) => (
                       <div key={i} className={`action-card ${action.status}`}>
                         <div className="action-header-info">
-                          <span className="action-type">{action.action_type.toUpperCase()}</span>
+                          <span className="action-type">{action.action_type}</span>
                           <span className={`status-pill ${action.status}`}>{action.status}</span>
                         </div>
-                        <div className="action-path">Target: {JSON.parse(action.params).path || 'Database'}</div>
                       </div>
                     ))}
                   </div>
                 </div>
-
                 <div className="panel policy-panel">
                   <h3>LOGIC MAPPING</h3>
                   <div className="policy-box">
-                    <strong>VIOLATED POLICY:</strong> {auditReport.policyReference || "General HR Policy"}
-                    <p>Calculation must comply with "Exclude Holidays" rule as defined in master documentation.</p>
+                    <strong>POLICY:</strong> {auditReport.policyReference || "General"}
                   </div>
                 </div>
               </div>
             </>
           ) : (
-            <div className="empty-state">SELECT A CASE TO COMMENCE FORENSIC AUDIT</div>
+            <div className="empty-state">SELECT CASE FOR AUDIT</div>
           )}
         </main>
       </div>

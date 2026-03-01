@@ -181,10 +181,20 @@ body {
   border: 2px dashed #334155;
 }
 
-.verdict-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.btn-export {
+  background: var(--accent-yellow);
+  color: black;
+  border: none;
+  padding: 6px 12px;
+  font-family: inherit;
+  font-weight: bold;
+  font-size: 0.7rem;
+  cursor: pointer;
+  margin-left: 20px;
+}
+
+.btn-export:hover {
+  background: white;
 }
 
 .btn-standard {
