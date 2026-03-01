@@ -181,9 +181,47 @@ body {
   border: 2px dashed #334155;
 }
 
-.loading-spinner {
-  text-align: center;
+.verdict-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.btn-standard {
+  background: transparent;
+  border: 1px solid var(--accent-green);
+  color: var(--accent-green);
+  padding: 5px 10px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.7rem;
+}
+
+.btn-standard:hover {
+  background: var(--accent-green);
+  color: black;
+}
+
+.case-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.admin-badge {
+  background: var(--accent-green);
+  color: black;
+  font-size: 0.6rem;
+  padding: 2px 4px;
+  font-weight: bold;
+}
+
+.case-module {
+  font-size: 0.7rem;
   color: var(--accent-yellow);
-  font-size: 1.5rem;
-  margin-top: 100px;
+  margin-top: 4px;
+}
+
+.standard-item {
+  border-left: 4px solid var(--accent-green);
 }

@@ -751,6 +751,28 @@ export function createApp(deps: { pool: DbClient }) {
         }
     });
 
+    // Mark as Admin Standard Endpoint
+    app.put('/api/recordings/:id/make-standard', async (req, res) => {
+        const id = req.params.id;
+        if (!isUuid(id)) return res.status(400).json({ error: 'Invalid ID' });
+
+        try {
+            // 1. Get the module of this recording
+            const { rows } = await deps.pool.query('SELECT app_version as module FROM recordings WHERE id = $1', [id]);
+            if (rows.length === 0) return res.status(404).json({ error: 'Recording not found' });
+            const moduleName = rows[0].module;
+
+            // 2. Unmark all other standards in this module
+            await deps.pool.query('UPDATE recordings SET is_admin = false WHERE app_version = $1', [moduleName]);
+
+            // 3. Mark this one as the standard
+            await deps.pool.query('UPDATE recordings SET is_admin = true WHERE id = $1', [id]);
+
+            res.json({ message: `Recording marked as Admin Standard for module: ${moduleName}` });
+        } catch (err: any) {
+            res.status(500).json({ error: 'Failed to update standard' });
+        }
+    });
     // Delete recording endpoint
     app.delete('/api/recordings/:id', writeLimiter, async (req, res) => {
         if (!requireApiKey(req, res)) return;

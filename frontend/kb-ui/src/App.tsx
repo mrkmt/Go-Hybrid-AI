@@ -5,6 +5,8 @@ interface Recording {
   id: string;
   session_id: string;
   created_at: string;
+  is_admin: boolean;
+  app_version: string; // Used as module name
   verdict?: string;
 }
 
@@ -25,19 +27,32 @@ function App() {
   const [auditReport, setAuditReport] = useState<AuditReport | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Admin standard ID (hardcoded for prototype, normally selectable)
-  const ADMIN_STANDARD_ID = recordings.find(r => r.session_id.includes('admin'))?.id || recordings[0]?.id;
-
-  useEffect(() => {
+  const fetchRecordings = () => {
     fetch('http://localhost:3000/api/recordings')
       .then(res => res.json())
       .then(data => setRecordings(data.data));
+  };
+
+  useEffect(() => {
+    fetchRecordings();
   }, []);
+
+  const markAsStandard = async (id: string) => {
+    if (!confirm('Mark this case as the official Admin Ground Truth for this module?')) return;
+    await fetch(`http://localhost:3000/api/recordings/${id}/make-standard`, { method: 'PUT' });
+    alert('Case elevated to Admin Standard');
+    fetchRecordings();
+  };
 
   const runAudit = async (caseId: string) => {
     setLoading(true);
     try {
-      const res = await fetch(`http://localhost:3000/api/audit/${caseId}?standardId=${ADMIN_STANDARD_ID}`);
+      const selected = recordings.find(r => r.id === caseId);
+      const standard = recordings.find(r => r.is_admin && r.app_version === selected?.app_version);
+      
+      const standardId = standard?.id || caseId; // Fallback to self if no standard found
+
+      const res = await fetch(`http://localhost:3000/api/audit/${caseId}?standardId=${standardId}`);
       const data = await res.json();
       setAuditReport(data);
       setSelectedCase(caseId);
@@ -68,11 +83,15 @@ function App() {
             {recordings.map(r => (
               <div 
                 key={r.id} 
-                className={`case-item ${selectedCase === r.id ? 'active' : ''}`}
+                className={`case-item ${selectedCase === r.id ? 'active' : ''} ${r.is_admin ? 'standard-item' : ''}`}
                 onClick={() => runAudit(r.id)}
               >
-                <div className="case-id">ID: {r.id.slice(0, 8)}...</div>
+                <div className="case-header">
+                  <div className="case-id">ID: {r.id.slice(0, 8)}...</div>
+                  {r.is_admin && <span className="admin-badge">ADMIN</span>}
+                </div>
                 <div className="case-date">{new Date(r.created_at).toLocaleString()}</div>
+                <div className="case-module">Module: {r.app_version}</div>
               </div>
             ))}
           </div>
@@ -86,7 +105,12 @@ function App() {
             <>
               {/* Top Panel: Verdict */}
               <div className={`verdict-panel ${auditReport.verdict}`}>
-                <h2>VERDICT: {auditReport.verdict}</h2>
+                <div className="verdict-header">
+                  <h2>VERDICT: {auditReport.verdict}</h2>
+                  <button className="btn-standard" onClick={() => markAsStandard(selectedCase!)}>
+                    MARK AS ADMIN STANDARD
+                  </button>
+                </div>
                 <p className="explanation">{auditReport.cloudVerdict || auditReport.explanation}</p>
               </div>
 
