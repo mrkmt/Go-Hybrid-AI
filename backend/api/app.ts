@@ -13,6 +13,7 @@ import { minioService } from './MinioService';
 import { IntegrityService } from './IntegrityService';
 import { DetectiveDispatcher } from './DetectiveDispatcher';
 import { ObjectRepoService } from './ObjectRepoService';
+import { VisualForensicsService } from './VisualForensicsService';
 
 export interface ReportFilter {
     startDate?: string;
@@ -131,14 +132,14 @@ export async function initDb(pool: DbClient) {
         );
     `);
 
-    // Ensure columns exist
+    // Ensure columns exist if table was already created
     try {
-        await pool.query(`ALTER TABLE recordings ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT false;`);
         await pool.query(`ALTER TABLE recordings ADD COLUMN IF NOT EXISTS video_url TEXT;`);
         await pool.query(`ALTER TABLE recordings ADD COLUMN IF NOT EXISTS screenshot_url TEXT;`);
         await pool.query(`ALTER TABLE recordings ADD COLUMN IF NOT EXISTS manual_snapshot_url TEXT;`);
         await pool.query(`ALTER TABLE recordings ADD COLUMN IF NOT EXISTS annotations JSONB DEFAULT '[]';`);
         await pool.query(`ALTER TABLE recordings ADD COLUMN IF NOT EXISTS expected_results JSONB DEFAULT '{}';`);
+        await pool.query(`ALTER TABLE recordings ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT false;`);
     } catch (e) {
         console.warn('Could not add asset columns (might already exist):', e);
     }
@@ -311,11 +312,21 @@ export function createApp(deps: { pool: DbClient }) {
             const executionData = (await deps.pool.query('SELECT screenshot_url, video_url, manual_snapshot_url FROM recordings WHERE id = $1', [executionId])).rows[0];
             const standardData = (await deps.pool.query('SELECT screenshot_url, video_url FROM recordings WHERE id = $1', [standardId])).rows[0];
 
+            // 2. Perform Automated Visual Regression (Pixel Match)
+            let visualDiffUrl = null;
+            if (standardData.screenshot_url && executionData.screenshot_url) {
+                const diffPath = await VisualForensicsService.generateVisualDiff(executionId, standardData.screenshot_url, executionData.screenshot_url);
+                if (diffPath) {
+                    visualDiffUrl = await minioService.getPresignedUrl(diffPath);
+                }
+            }
+
             // Generate presigned URLs for assets
             const executionAssetUrls = {
                 screenshot: executionData.screenshot_url ? await minioService.getPresignedUrl(executionData.screenshot_url) : null,
                 video: executionData.video_url ? await minioService.getPresignedUrl(executionData.video_url) : null,
                 manual: executionData.manual_snapshot_url ? await minioService.getPresignedUrl(executionData.manual_snapshot_url) : null,
+                visualDiff: visualDiffUrl
             };
 
             const standardAssetUrls = {
@@ -340,6 +351,29 @@ export function createApp(deps: { pool: DbClient }) {
         } catch (err: any) {
             console.error('Forensic audit error:', err);
             res.status(500).json({ error: 'Forensic audit failed', details: err.message });
+        }
+    });
+
+    // Mark as Admin Standard Endpoint
+    app.put('/api/recordings/:id/make-standard', async (req, res) => {
+        const id = req.params.id;
+        if (!isUuid(id)) return res.status(400).json({ error: 'Invalid ID' });
+
+        try {
+            // 1. Get the module of this recording
+            const { rows } = await deps.pool.query('SELECT app_version as module FROM recordings WHERE id = $1', [id]);
+            if (rows.length === 0) return res.status(404).json({ error: 'Recording not found' });
+            const moduleName = rows[0].module;
+
+            // 2. Unmark all other standards in this module
+            await deps.pool.query('UPDATE recordings SET is_admin = false WHERE app_version = $1', [moduleName]);
+
+            // 3. Mark this one as the standard
+            await deps.pool.query('UPDATE recordings SET is_admin = true WHERE id = $1', [id]);
+
+            res.json({ message: `Recording marked as Admin Standard for module: ${moduleName}` });
+        } catch (err: any) {
+            res.status(500).json({ error: 'Failed to update standard' });
         }
     });
 
@@ -770,28 +804,6 @@ export function createApp(deps: { pool: DbClient }) {
         }
     });
 
-    // Mark as Admin Standard Endpoint
-    app.put('/api/recordings/:id/make-standard', async (req, res) => {
-        const id = req.params.id;
-        if (!isUuid(id)) return res.status(400).json({ error: 'Invalid ID' });
-
-        try {
-            // 1. Get the module of this recording
-            const { rows } = await deps.pool.query('SELECT app_version as module FROM recordings WHERE id = $1', [id]);
-            if (rows.length === 0) return res.status(404).json({ error: 'Recording not found' });
-            const moduleName = rows[0].module;
-
-            // 2. Unmark all other standards in this module
-            await deps.pool.query('UPDATE recordings SET is_admin = false WHERE app_version = $1', [moduleName]);
-
-            // 3. Mark this one as the standard
-            await deps.pool.query('UPDATE recordings SET is_admin = true WHERE id = $1', [id]);
-
-            res.json({ message: `Recording marked as Admin Standard for module: ${moduleName}` });
-        } catch (err: any) {
-            res.status(500).json({ error: 'Failed to update standard' });
-        }
-    });
     // Delete recording endpoint
     app.delete('/api/recordings/:id', writeLimiter, async (req, res) => {
         if (!requireApiKey(req, res)) return;
