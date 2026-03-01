@@ -1,7 +1,33 @@
-import { Pool } from 'pg';
+import { Client, Pool } from 'pg';
 import { config } from './config';
 
 async function initDatabase() {
+    // 1. Create Database if not exists
+    const adminClient = new Client({
+        user: config.postgres.user,
+        host: config.postgres.host,
+        database: 'postgres', // Connect to default admin DB
+        password: config.postgres.password,
+        port: config.postgres.port,
+    });
+
+    try {
+        await adminClient.connect();
+        const res = await adminClient.query(`SELECT 1 FROM pg_database WHERE datname = 'ai_testing_platform'`);
+        if (res.rowCount === 0) {
+            console.log('[Init] Creating database: ai_testing_platform...');
+            await adminClient.query('CREATE DATABASE ai_testing_platform');
+            console.log('[Init] Database created successfully.');
+        } else {
+            console.log('[Init] Database ai_testing_platform already exists.');
+        }
+    } catch (err: any) {
+        console.warn('[Init] DB Creation Warning (likely permission related):', err.message);
+    } finally {
+        await adminClient.end();
+    }
+
+    // 2. Initialize Tables
     const pool = new Pool({
         user: config.postgres.user,
         host: config.postgres.host,
@@ -11,7 +37,8 @@ async function initDatabase() {
     });
 
     try {
-        // Create tables
+        console.log('[Init] Connecting to ai_testing_platform to initialize tables...');
+        
         await pool.query(`
             CREATE TABLE IF NOT EXISTS recordings (
                 id UUID PRIMARY KEY,
@@ -22,18 +49,14 @@ async function initDatabase() {
                 network_requests JSONB,
                 video_url TEXT,
                 screenshot_url TEXT,
+                manual_snapshot_url TEXT,
+                annotations JSONB DEFAULT '[]',
+                expected_results JSONB DEFAULT '{}',
+                is_admin BOOLEAN DEFAULT false,
                 user_id VARCHAR(255) DEFAULT 'public',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         `);
-
-        // Ensure columns exist if table was already created
-        try {
-            await pool.query(`ALTER TABLE recordings ADD COLUMN IF NOT EXISTS video_url TEXT;`);
-            await pool.query(`ALTER TABLE recordings ADD COLUMN IF NOT EXISTS screenshot_url TEXT;`);
-        } catch (e) {
-            console.warn('Could not add asset columns (might already exist):', e);
-        }
 
         await pool.query(`
             CREATE TABLE IF NOT EXISTS ai_logs (
@@ -56,23 +79,38 @@ async function initDatabase() {
             );
         `);
 
-        // Create indexes for performance
         await pool.query(`
-            CREATE INDEX IF NOT EXISTS idx_recordings_created_at ON recordings(created_at DESC);
-        `);
-        await pool.query(`
-            CREATE INDEX IF NOT EXISTS idx_recordings_user_id ON recordings(user_id);
-        `);
-        await pool.query(`
-            CREATE INDEX IF NOT EXISTS idx_ai_logs_recording_id ON ai_logs(recording_id);
-        `);
-        await pool.query(`
-            CREATE INDEX IF NOT EXISTS idx_ai_logs_created_at ON ai_logs(created_at DESC);
+            CREATE TABLE IF NOT EXISTS object_repository (
+                id VARCHAR(255) PRIMARY KEY,
+                name VARCHAR(255),
+                app_profile VARCHAR(50) DEFAULT 'default',
+                platform VARCHAR(50) DEFAULT 'web',
+                selector_primary TEXT NOT NULL,
+                selector_fallbacks JSONB DEFAULT '[]',
+                locator_type VARCHAR(50) DEFAULT 'css',
+                confidence FLOAT DEFAULT 0.8,
+                reliability_score FLOAT DEFAULT 1.0,
+                last_verified_at TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
         `);
 
-        console.log('Database initialized successfully!');
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS ai_actions (
+                id SERIAL PRIMARY KEY,
+                recording_id UUID REFERENCES recordings(id) ON DELETE CASCADE,
+                action_type VARCHAR(50),
+                params JSONB,
+                result JSONB,
+                status VARCHAR(20),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+
+        console.log('[Init] All forensic tables initialized successfully!');
     } catch (err) {
-        console.error('Error initializing database:', err);
+        console.error('[Init] Error initializing tables:', err);
         throw err;
     } finally {
         await pool.end();
