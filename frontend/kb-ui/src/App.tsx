@@ -32,14 +32,37 @@ function App() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    console.log('[Dashboard] Connecting to WebSocket...');
     const socket = new WebSocket('ws://localhost:3000');
+
+    socket.onopen = () => {
+      console.log('✅ [Dashboard] WebSocket Connected');
+    };
+
     socket.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.type === 'LIVE_STEP') {
-        setLiveSteps(prev => [data.step, ...prev].slice(0, 10));
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'LIVE_STEP') {
+          setLiveSteps(prev => [data.step, ...prev].slice(0, 10));
+        }
+      } catch (e) {
+        console.error('[Dashboard] WS Message Parse Error', e);
       }
     };
-    return () => socket.close();
+
+    socket.onerror = (error) => {
+      console.error('❌ [Dashboard] WebSocket Error:', error);
+    };
+
+    socket.onclose = () => {
+      console.log('[Dashboard] WebSocket Closed');
+    };
+
+    return () => {
+      if (socket.readyState === WebSocket.CONNECTING || socket.readyState === WebSocket.OPEN) {
+        socket.close();
+      }
+    };
   }, []);
 
   const fetchRecordings = () => {
