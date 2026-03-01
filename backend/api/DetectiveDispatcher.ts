@@ -2,15 +2,39 @@ import { AgentOrchestrator, AgentType } from './AgentOrchestrator';
 import { minioService } from './MinioService';
 
 export enum IssueType {
-    HEARTBEAT = 'heartbeat',   // Performance, Stuck, Timeouts
-    POLICY_LEAVE = 'policy_leave', // Leave/Holiday logic
-    POLICY_ATTENDANCE = 'policy_attendance', // Check-in, Overtime, Roster
-    POLICY_PAYROLL = 'policy_payroll', // Salary, Deductions
-    VISUAL = 'visual',         // UI, CSS, Images
+    HEARTBEAT = 'heartbeat',   
+    POLICY_LEAVE = 'policy_leave', 
+    POLICY_ATTENDANCE = 'policy_attendance', 
+    POLICY_PAYROLL = 'policy_payroll', 
+    VISUAL = 'visual',         
+    EXTERNAL_API = 'external_api', // For Postman
+    EXTERNAL_PERF = 'external_perf', // For JMeter
     UNKNOWN = 'unknown'
 }
 
-export interface DetectiveReport {
+export class DetectiveDispatcher {
+    /**
+     * Ingests results from external tools (Postman, JMeter, Selenium)
+     */
+    static async ingestExternal(toolName: string, payload: any, pool: any): Promise<string> {
+        console.log(`[Detective] Ingesting Foreign Intelligence from: ${toolName.toUpperCase()}`);
+
+        const id = require('uuid').v4();
+        let issueType = IssueType.UNKNOWN;
+
+        if (toolName === 'postman') issueType = IssueType.EXTERNAL_API;
+        if (toolName === 'jmeter') issueType = IssueType.EXTERNAL_PERF;
+
+        // Save as a special 'external' recording type
+        await pool.query(
+            `INSERT INTO recordings (id, session_id, app_version, steps, annotations, user_id) 
+             VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6)`,
+            [id, `external_${toolName}_${Date.now()}`, 'external-v1', JSON.stringify(payload), JSON.stringify([{note: `Imported from ${toolName}`}]), 'public']
+        );
+
+        return id;
+    }
+
     sessionId: string;
     issueType: IssueType;
     evidence: {

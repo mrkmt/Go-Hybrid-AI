@@ -12,6 +12,7 @@ import { config } from './config';
 import { minioService } from './MinioService';
 import { IntegrityService } from './IntegrityService';
 import { DetectiveDispatcher } from './DetectiveDispatcher';
+import { ObjectRepoService } from './ObjectRepoService';
 
 export interface ReportFilter {
     startDate?: string;
@@ -159,6 +160,23 @@ export async function initDb(pool: DbClient) {
         );
     `);
 
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS object_repository (
+            id VARCHAR(255) PRIMARY KEY,
+            name VARCHAR(255),
+            app_profile VARCHAR(50) DEFAULT 'globalhr',
+            platform VARCHAR(50) DEFAULT 'web',
+            selector_primary TEXT NOT NULL,
+            selector_fallbacks JSONB DEFAULT '[]',
+            locator_type VARCHAR(50) DEFAULT 'css',
+            confidence FLOAT DEFAULT 0.8,
+            reliability_score FLOAT DEFAULT 1.0,
+            last_verified_at TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    `);
+
     try {
         await pool.query(`ALTER TABLE recordings ALTER COLUMN user_id SET DEFAULT 'public';`);
     } catch {
@@ -225,6 +243,19 @@ export function createApp(deps: { pool: DbClient }) {
                 time: new Date().toISOString(),
                 error: 'Database connection failed'
             });
+        }
+    });
+
+    // External Tool Integration Endpoint
+    app.post('/api/external-results', async (req, res) => {
+        const { tool, results } = req.body;
+        if (!tool || !results) return res.status(400).json({ error: 'Tool name and results required' });
+
+        try {
+            const id = await DetectiveDispatcher.ingestExternal(tool, results, deps.pool);
+            res.status(201).json({ id, message: `Intelligence from ${tool} captured` });
+        } catch (err: any) {
+            res.status(500).json({ error: 'Failed to ingest external data' });
         }
     });
 
@@ -622,6 +653,19 @@ export function createApp(deps: { pool: DbClient }) {
         const id = uuidv4();
 
         try {
+            // Process steps to link with Object Repository
+            const linkedSteps = await Promise.all((steps as any[]).map(async (step: any) => {
+                if (step.selector) {
+                    const objectId = await ObjectRepoService.ensureObject(deps.pool, {
+                        selector: step.selector,
+                        name: step.elementName,
+                        appProfile: appVersion || 'globalhr'
+                    });
+                    return { ...step, target_object_id: objectId };
+                }
+                return step;
+            }));
+
             await deps.pool.query(
                 `INSERT INTO recordings (
                     id, session_id, app_version, environment, steps, network_requests, 
@@ -632,7 +676,7 @@ export function createApp(deps: { pool: DbClient }) {
                     sessionId || '',
                     appVersion || '',
                     JSON.stringify(environment || {}),
-                    JSON.stringify(steps),
+                    JSON.stringify(linkedSteps),
                     JSON.stringify(networkRequests || []),
                     JSON.stringify(annotations || []),
                     JSON.stringify(expectedResults || {}),
