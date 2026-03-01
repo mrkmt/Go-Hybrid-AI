@@ -1,12 +1,15 @@
 import fetch from 'node-fetch';
 import { ContextManager } from './ContextManager';
 import { config } from './config';
+import { CloudAIService } from './CloudAIService';
 
 export interface AgentResult {
-    response: string;
+    response: string; // Summarized Anomaly (Local AI)
+    cloudVerdict?: string; // Human-readable final verdict (Cloud AI)
     modelUsed: string;
     status: 'success' | 'fallback' | 'error';
-    agent?: string; // Added to track which agent processed the request
+    agent?: string;
+    fromCache?: boolean;
 }
 
 export interface MultiAgentTask {
@@ -63,49 +66,86 @@ export class AgentOrchestrator {
     ];
 
     /**
-     * Executes a task with agentic reasoning and fallback mechanisms.
+     * Executes a Hybrid Detective Investigation:
+     * 1. Local AI (Ollama) - Data Parsing & Anomaly Detection (Cost Effective).
+     * 2. Cloud AI (Gemini) - High-level Reasoning & Policy Audit (Expert Opinion).
      */
-    static async executeTask(prompt: string, options: { structured: boolean } = { structured: true }): Promise<AgentResult> {
+    static async executeRootCauseAnalysis(
+        error: string, 
+        steps: any[],
+        annotations: any[] = [],
+        expectedResults: any = {}
+    ): Promise<AgentResult> {
+        console.log(`[Hybrid Orchestrator] Starting Split-Brain Investigation...`);
+
         try {
-            // Step 1: Attempt with Primary Model (Qwen)
-            const result = await this.callModel(this.PRIMARY_MODEL, prompt, options.structured);
-            return { response: result, modelUsed: this.PRIMARY_MODEL, status: 'success' };
-        } catch (err) {
-            if (!this.FALLBACK_MODEL) {
-                return { response: "Primary model failed and no fallback model is configured.", modelUsed: this.PRIMARY_MODEL, status: 'error' };
-            }
+            // STEP 1: Local AI (First Responder - Ollama)
+            // Task: Clean raw logs and identify anomalies to compress context for Cloud AI.
+            const localPrompt = `
+                ### Task: Identify Anomalies for Chief Investigator
+                Compare the following execution steps with user annotations. 
+                Focus on: API response codes, calculation mismatches, and stuck UI states.
+                Provide a CONCISE summary of findings (Anomaly Report).
+                
+                Error Trace: ${error}
+                User Annotations: ${JSON.stringify(annotations)}
+                Target Steps (Last 3): ${JSON.stringify(steps.slice(-3))}
+            `;
 
-            console.warn(`Primary model ${this.PRIMARY_MODEL} failed, attempting fallback...`);
+            console.log(`[Local AI] Parsing data logs via ${this.PRIMARY_MODEL}...`);
+            const localAnalysis = await this.callModel(this.PRIMARY_MODEL, localPrompt, false);
+            
+            // STEP 2: Cloud AI (Chief Investigator - Gemini)
+            // Task: High-level reasoning using the anomaly summary + Policy context.
+            console.log(`[Cloud AI] Sending evidence to Chief Investigator (Gemini)...`);
+            const policySummary = "Policy: Leave calculation must ignore holidays. HR Net Pay rule applies.";
+            const cloudVerdict = await CloudAIService.conductFinalAudit(localAnalysis, policySummary);
 
-            try {
-                // Step 2: Fallback to Secondary Model
-                const result = await this.callModel(this.FALLBACK_MODEL, prompt, options.structured);
-                return { response: result, modelUsed: this.FALLBACK_MODEL, status: 'fallback' };
-            } catch (fallbackErr) {
-                return { response: "All models failed.", modelUsed: 'none', status: 'error' };
-            }
+            return {
+                response: localAnalysis,
+                cloudVerdict: cloudVerdict,
+                modelUsed: `Hybrid (${this.PRIMARY_MODEL} + Gemini)`,
+                status: 'success',
+                agent: 'detective-duo'
+            };
+        } catch (err: any) {
+            console.error('[Hybrid Orchestrator] Investigation failed:', err.message);
+            return {
+                response: "Detective investigation failed.",
+                modelUsed: 'none',
+                status: 'error'
+            };
         }
     }
 
     /**
-     * Executes a multi-agent collaboration task.
+     * Executes a test generation task (Standard Multi-Agent).
      */
-    static async executeMultiAgentTask(task: MultiAgentTask): Promise<AgentResult> {
+    static async executeTestGeneration(requirements: string): Promise<AgentResult> {
+        const multiAgentTask: MultiAgentTask = {
+            task: "Generate a comprehensive Playwright test based on the provided requirements",
+            context: {
+                requirements: requirements,
+                timestamp: new Date().toISOString()
+            },
+            agents: [AgentType.ARCHITECT, AgentType.CODER, AgentType.REVIEWER]
+        };
+        
+        return this.executeMultiAgentTask(multiAgentTask);
+    }
+
+    private static async executeMultiAgentTask(task: MultiAgentTask): Promise<AgentResult> {
         try {
             let currentContext = JSON.stringify(task.context);
             let finalResponse = "";
             
-            // Process through each agent in sequence
             for (const agentType of task.agents) {
                 const agentProfile = this.AGENT_PROFILES.find(a => a.name === agentType);
-                if (!agentProfile) {
-                    continue;
-                }
+                if (!agentProfile) continue;
                 
                 const agentPrompt = `${agentProfile.promptPrefix}\n\nTask: ${task.task}\n\nContext: ${currentContext}`;
                 const result = await this.callModel(agentProfile.model, agentPrompt, true);
                 
-                // Update context with agent's output
                 currentContext = JSON.stringify({
                     ...task.context,
                     [`${agentType}_output`]: result,
@@ -126,56 +166,13 @@ export class AgentOrchestrator {
             return {
                 response: "Multi-agent collaboration failed.",
                 modelUsed: 'none',
-                status: 'error',
-                agent: 'multi-agent'
+                status: 'error'
             };
         }
     }
 
-    /**
-     * Executes a specialized root cause analysis with multi-agent collaboration.
-     */
-    static async executeRootCauseAnalysis(
-        error: string, 
-        steps: any[],
-        annotations?: any[],
-        expectedResults?: any
-    ): Promise<AgentResult> {
-        const multiAgentTask: MultiAgentTask = {
-            task: "Analyze the provided error, test steps, user annotations, and expected results to identify the root cause and suggest a solution",
-            context: {
-                error: error,
-                steps: steps,
-                annotations: annotations || [],
-                expectedResults: expectedResults || {},
-                timestamp: new Date().toISOString()
-            },
-            agents: [AgentType.ANALYST]
-        };
-        
-        return this.executeMultiAgentTask(multiAgentTask);
-    }
-
-    /**
-     * Executes a test generation task with multi-agent collaboration.
-     */
-    static async executeTestGeneration(requirements: string): Promise<AgentResult> {
-        const multiAgentTask: MultiAgentTask = {
-            task: "Generate a comprehensive Playwright test based on the provided requirements",
-            context: {
-                requirements: requirements,
-                timestamp: new Date().toISOString()
-            },
-            agents: [AgentType.ARCHITECT, AgentType.CODER, AgentType.REVIEWER]
-        };
-        
-        return this.executeMultiAgentTask(multiAgentTask);
-    }
-
     private static async callModel(model: string, prompt: string, structured: boolean): Promise<string> {
-        // Here we could also add "thoughts" accumulation for agentic chain-of-thought
         const finalPrompt = ContextManager.trimContext(prompt);
-
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), config.ai.timeoutMs);
 

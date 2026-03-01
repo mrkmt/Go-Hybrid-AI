@@ -10,6 +10,8 @@ import { KnowledgeService } from './KnowledgeService';
 import { ReportingService } from './ReportingService';
 import { config } from './config';
 import { minioService } from './MinioService';
+import { IntegrityService } from './IntegrityService';
+import { DetectiveDispatcher } from './DetectiveDispatcher';
 
 export interface ReportFilter {
     startDate?: string;
@@ -246,6 +248,47 @@ export function createApp(deps: { pool: DbClient }) {
         }
     });
 
+    // Forensic Audit Endpoint for UI
+    app.get('/api/audit/:id', async (req, res) => {
+        const executionId = req.params.id;
+        const standardId = req.query.standardId as string;
+
+        if (!isUuid(executionId) || !standardId || !isUuid(standardId)) {
+            return res.status(400).json({ error: 'Valid Execution and Standard IDs required' });
+        }
+
+        try {
+            const auditReport = await IntegrityService.performForensicAudit(standardId, executionId, deps.pool);
+            
+            // Get asset paths
+            const executionData = (await deps.pool.query('SELECT screenshot_url, video_url, manual_snapshot_url FROM recordings WHERE id = $1', [executionId])).rows[0];
+            const standardData = (await deps.pool.query('SELECT screenshot_url, video_url FROM recordings WHERE id = $1', [standardId])).rows[0];
+
+            // Generate presigned URLs for assets
+            const executionAssetUrls = {
+                screenshot: executionData.screenshot_url ? await minioService.getPresignedUrl(executionData.screenshot_url) : null,
+                video: executionData.video_url ? await minioService.getPresignedUrl(executionData.video_url) : null,
+                manual: executionData.manual_snapshot_url ? await minioService.getPresignedUrl(executionData.manual_snapshot_url) : null,
+            };
+
+            const standardAssetUrls = {
+                screenshot: standardData.screenshot_url ? await minioService.getPresignedUrl(standardData.screenshot_url) : null,
+                video: standardData.video_url ? await minioService.getPresignedUrl(standardData.video_url) : null,
+            };
+
+            res.json({
+                ...auditReport,
+                assets: {
+                    execution: executionAssetUrls,
+                    standard: standardAssetUrls
+                }
+            });
+        } catch (err: any) {
+            console.error('Forensic audit error:', err);
+            res.status(500).json({ error: 'Forensic audit failed', details: err.message });
+        }
+    });
+
     // Asset upload endpoint (MinIO)
     app.post('/api/recordings/:id/assets', writeLimiter, upload.single('file'), async (req, res) => {
         if (!requireApiKey(req, res)) return;
@@ -259,7 +302,7 @@ export function createApp(deps: { pool: DbClient }) {
             return res.status(400).json({ error: 'No file uploaded' });
         }
 
-        const type = req.body.type || 'screenshot'; // 'video' or 'screenshot'
+        const type = req.body.type || 'screenshot'; // 'video', 'screenshot', or 'manual'
         const ext = req.file.originalname.split('.').pop();
         const objectName = `${id}/${type}_${Date.now()}.${ext}`;
 
@@ -275,7 +318,10 @@ export function createApp(deps: { pool: DbClient }) {
                 'Recording-ID': id
             });
 
-            const column = type === 'video' ? 'video_url' : 'screenshot_url';
+            let column = 'screenshot_url';
+            if (type === 'video') column = 'video_url';
+            if (type === 'manual') column = 'manual_snapshot_url';
+
             await deps.pool.query(
                 `UPDATE recordings SET ${column} = $1 WHERE id = $2`,
                 [objectName, id]
@@ -298,7 +344,10 @@ export function createApp(deps: { pool: DbClient }) {
         if (!isUuid(id)) return res.status(400).json({ error: 'Invalid ID' });
 
         try {
-            const column = type === 'video' ? 'video_url' : 'screenshot_url';
+            let column = 'screenshot_url';
+            if (type === 'video') column = 'video_url';
+            if (type === 'manual') column = 'manual_snapshot_url';
+
             const { rows } = await deps.pool.query(
                 `SELECT ${column} as path FROM recordings WHERE id = $1`,
                 [id]
@@ -604,7 +653,7 @@ export function createApp(deps: { pool: DbClient }) {
 
         try {
             const { rows } = await deps.pool.query(
-                `SELECT id, session_id, app_version, environment, video_url, screenshot_url, created_at 
+                `SELECT id, session_id, app_version, environment, video_url, screenshot_url, manual_snapshot_url, created_at 
                  FROM recordings 
                  ORDER BY created_at DESC 
                  LIMIT $1 OFFSET $2`,
@@ -664,7 +713,7 @@ export function createApp(deps: { pool: DbClient }) {
 
         try {
             // Get asset paths before deleting
-            const { rows } = await deps.pool.query('SELECT video_url, screenshot_url FROM recordings WHERE id = $1', [id]);
+            const { rows } = await deps.pool.query('SELECT video_url, screenshot_url, manual_snapshot_url FROM recordings WHERE id = $1', [id]);
             
             const result: any = await deps.pool.query(
                 'DELETE FROM recordings WHERE id = $1',
@@ -677,9 +726,10 @@ export function createApp(deps: { pool: DbClient }) {
 
             // Cleanup MinIO assets
             if (rows.length > 0) {
-                const { video_url, screenshot_url } = rows[0];
+                const { video_url, screenshot_url, manual_snapshot_url } = rows[0];
                 if (video_url) await minioService.deleteFile(video_url).catch(() => {});
                 if (screenshot_url) await minioService.deleteFile(screenshot_url).catch(() => {});
+                if (manual_snapshot_url) await minioService.deleteFile(manual_snapshot_url).catch(() => {});
             }
 
             res.json({ message: 'Recording and associated assets deleted' });

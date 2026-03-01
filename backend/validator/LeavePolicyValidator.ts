@@ -1,65 +1,74 @@
-export interface LeavePolicyConfig {
-    treatHolidayAsLeave: boolean;
+import { DetectiveDispatcher } from '../api/DetectiveDispatcher';
+
+export interface LeaveCalculationResult {
+    staffId: string;
+    requestedDays: number;
+    policyType: 'exclude_holidays' | 'include_holidays';
+    holidaysInPeriod: number;
+    calculatedDays: number; // API က ပြန်ပေးတဲ့ result
 }
 
-export interface LeaveRequest {
-    startDate: string;
-    endDate: string;
-    holidayDates: string[];
-    excludeWeekends?: boolean;
+export interface BusinessLogicViolation {
+    type: 'BusinessLogicViolation';
+    message: string;
+    evidence: {
+        staffId: string;
+        expectedDays: number;
+        actualDays: number;
+        policy: string;
+        holidayMismatch: boolean;
+    };
 }
 
 export class LeavePolicyValidator {
     /**
-     * Computes the expected leave consumption based on policy rules.
-     * 
-     * @param request - The leave request details including dates and holiday flags.
-     * @param config - Global or tenant-specific policy configuration.
-     * @returns - Number of days that should be deducted from leave balance.
+     * Forensic Audit for Leave Calculations.
      */
-    static computeExpectedLeaveConsumed(request: LeaveRequest, config: LeavePolicyConfig): number {
-        const start = new Date(request.startDate);
-        const end = new Date(request.endDate);
-        let totalConsumed = 0;
+    static validateCalculation(data: LeaveCalculationResult): BusinessLogicViolation | null {
+        console.log(`[Detective] Auditing Leave Policy for Staff: ${data.staffId}`);
 
-        // Iterate through each day in the range
-        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-            const dateStr = d.toISOString().split('T')[0];
-            const dayOfWeek = d.getDay(); // 0 = Sunday, 6 = Saturday
-            
-            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-            const isHoliday = request.holidayDates.includes(dateStr);
+        let expectedDays = data.requestedDays;
 
-            // Skip weekends if the policy excludes them (default true for business apps)
-            if (request.excludeWeekends !== false && isWeekend) {
-                continue;
-            }
-
-            if (isHoliday) {
-                // If it's a holiday, only count it if the policy treats holidays as leave
-                if (config.treatHolidayAsLeave) {
-                    totalConsumed++;
-                }
-            } else {
-                // Regular business day
-                totalConsumed++;
-            }
+        // "Exclude Holidays" policy logic
+        if (data.policyType === 'exclude_holidays') {
+            expectedDays = data.requestedDays - data.holidaysInPeriod;
         }
 
-        return totalConsumed;
+        // Logic Auditing: Check if calculated days from API matches the policy expectation
+        if (data.calculatedDays !== expectedDays) {
+            const violation: BusinessLogicViolation = {
+                type: 'BusinessLogicViolation',
+                message: `CRITICAL: Leave calculation mismatch detected for Staff: ${data.staffId}`,
+                evidence: {
+                    staffId: data.staffId,
+                    expectedDays: expectedDays,
+                    actualDays: data.calculatedDays,
+                    policy: data.policyType,
+                    holidayMismatch: data.calculatedDays === data.requestedDays && data.policyType === 'exclude_holidays'
+                }
+            };
+
+            console.error(`[Forensic Evidence] ${violation.message}`);
+            if (violation.evidence.holidayMismatch) {
+                console.error(`[Evidence] System counted holidays as leave despite 'Exclude Holidays' policy.`);
+            }
+
+            return violation;
+        }
+
+        console.log(`[Detective] Leave calculation verified for Staff: ${data.staffId}. Logic holds.`);
+        return null;
     }
 
     /**
-     * Validates observed leave balance against expected.
+     * Audits the entire staff allowance flow based on annotations.
      */
-    static validateDiscrepancy(expected: number, actual: number): { isValid: boolean; diff: number; message: string } {
-        const diff = actual - expected;
-        const isValid = diff === 0;
-        
-        return {
-            isValid,
-            diff,
-            message: isValid ? "Leave consumption matches policy." : `Discrepancy detected: Expected ${expected} days, but observed ${actual} days.`
-        };
+    static auditFromAnnotations(staffId: string, currentAllowance: number, usedDays: number, remaining: number): boolean {
+        const expectedRemaining = currentAllowance - usedDays;
+        if (remaining !== expectedRemaining) {
+            console.error(`[Forensic Audit] Staff Allowance Discrepancy! Base: ${currentAllowance}, Used: ${usedDays}, Expected: ${expectedRemaining}, Got: ${remaining}`);
+            return false;
+        }
+        return true;
     }
 }
