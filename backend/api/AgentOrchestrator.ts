@@ -2,6 +2,7 @@ import fetch from 'node-fetch';
 import { ContextManager } from './ContextManager';
 import { config } from './config';
 import { CloudAIService } from './CloudAIService';
+import { BurmeseTranslator } from './BurmeseTranslator';
 
 export interface AgentResult {
     response: string; // Summarized Anomaly (Local AI)
@@ -67,8 +68,9 @@ export class AgentOrchestrator {
 
     /**
      * Executes a Hybrid Detective Investigation:
-     * 1. Local AI (Ollama) - Data Parsing & Anomaly Detection (Cost Effective).
-     * 2. Cloud AI (Gemini) - High-level Reasoning & Policy Audit (Expert Opinion).
+     * 1. Burmese Translator (Preprocessing)
+     * 2. Local AI (Ollama) - Data Parsing & Anomaly Detection (Cost Effective).
+     * 3. Cloud AI (Gemini) - High-level Reasoning & Policy Audit (Expert Opinion).
      */
     static async executeRootCauseAnalysis(
         error: string, 
@@ -76,19 +78,22 @@ export class AgentOrchestrator {
         annotations: any[] = [],
         expectedResults: any = {}
     ): Promise<AgentResult> {
-        console.log(`[Hybrid Orchestrator] Starting Split-Brain Investigation...`);
+        console.log(`[Hybrid Orchestrator] Starting Multilingual Investigation...`);
 
         try {
+            // STEP 0: Burmese Translation
+            const annotationText = JSON.stringify(annotations);
+            const translatedAnnotations = await BurmeseTranslator.translateToForensicEnglish(annotationText);
+
             // STEP 1: Local AI (First Responder - Ollama)
-            // Task: Clean raw logs and identify anomalies to compress context for Cloud AI.
             const localPrompt = `
                 ### Task: Identify Anomalies for Chief Investigator
-                Compare the following execution steps with user annotations. 
+                Compare the following execution steps with user annotations (translated). 
                 Focus on: API response codes, calculation mismatches, and stuck UI states.
-                Provide a CONCISE summary of findings (Anomaly Report).
+                Provide a CONCISE summary of findings.
                 
                 Error Trace: ${error}
-                User Annotations: ${JSON.stringify(annotations)}
+                User Annotations: ${translatedAnnotations}
                 Target Steps (Last 3): ${JSON.stringify(steps.slice(-3))}
             `;
 
@@ -96,7 +101,6 @@ export class AgentOrchestrator {
             const localAnalysis = await this.callModel(this.PRIMARY_MODEL, localPrompt, false);
             
             // STEP 2: Cloud AI (Chief Investigator - Gemini)
-            // Task: High-level reasoning using the anomaly summary + Policy context.
             console.log(`[Cloud AI] Sending evidence to Chief Investigator (Gemini)...`);
             const policySummary = "Policy: Leave calculation must ignore holidays. HR Net Pay rule applies.";
             const cloudVerdict = await CloudAIService.conductFinalAudit(localAnalysis, policySummary);
