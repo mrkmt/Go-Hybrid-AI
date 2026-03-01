@@ -222,6 +222,40 @@ body {
   margin-top: 4px;
 }
 
-.standard-item {
-  border-left: 4px solid var(--accent-green);
+.live-feed {
+  margin-bottom: 1.5rem;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 10px;
+  border: 1px solid var(--accent-yellow);
 }
+
+.live-pulse {
+  color: var(--accent-yellow);
+  font-size: 0.8rem;
+  margin-bottom: 10px;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+.live-steps {
+  font-size: 0.7rem;
+}
+
+.live-step-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.live-action { color: var(--accent-green); font-weight: bold; }
+.live-element { color: #94a3b8; }
+
+.no-live { color: #475569; font-style: italic; }
+
+.divider { border: 0; border-top: 1px solid var(--border-color); margin: 1.5rem 0; }

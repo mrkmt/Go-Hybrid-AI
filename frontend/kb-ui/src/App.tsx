@@ -25,7 +25,20 @@ function App() {
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [selectedCase, setSelectedCase] = useState<string | null>(null);
   const [auditReport, setAuditReport] = useState<AuditReport | null>(null);
+  const [liveSteps, setLiveSteps] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    // Connect to WebSocket for live streaming
+    const socket = new WebSocket('ws://localhost:3000');
+    socket.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.type === 'LIVE_STEP') {
+        setLiveSteps(prev => [data.step, ...prev].slice(0, 10)); // Keep last 10 steps
+      }
+    };
+    return () => socket.close();
+  }, []);
 
   const fetchRecordings = () => {
     fetch('http://localhost:3000/api/recordings')
@@ -78,6 +91,22 @@ function App() {
       <div className="main-layout">
         {/* Sidebar: Investigation List */}
         <aside className="sidebar">
+          {/* Live Feed */}
+          <div className="live-feed">
+            <h3 className="live-pulse">LIVE INVESTIGATION STREAM</h3>
+            <div className="live-steps">
+              {liveSteps.length === 0 && <div className="no-live">WAITING FOR DATA...</div>}
+              {liveSteps.map((step, i) => (
+                <div key={i} className="live-step-item">
+                  <span className="live-action">{step.action.toUpperCase()}</span>
+                  <span className="live-element">{step.elementName || step.selector.slice(0, 15)}...</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <hr className="divider" />
+
           <h3>CASES FOR AUDIT</h3>
           <div className="case-list">
             {recordings.map(r => (

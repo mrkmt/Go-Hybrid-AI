@@ -17,17 +17,36 @@ function detectModule(url) {
     return 'default';
 }
 
+let socket = null;
+
+function connectWs() {
+    socket = new WebSocket('ws://localhost:3000');
+    socket.onopen = () => console.log('[Go-Hybrid-WS] Connected to live stream');
+    socket.onclose = () => setTimeout(connectWs, 5000); // Reconnect loop
+}
+
+connectWs();
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === 'CAPTURE_STEP') {
         ensureSession();
         
-        // Autodetect module from the tab URL if it's still 'default'
+        // Autodetect module
         if (currentRecording.module === 'default' && sender.tab?.url) {
             currentRecording.module = detectModule(sender.tab.url);
-            console.log('[Go-Hybrid] Autodetected Module:', currentRecording.module);
         }
 
         currentRecording.steps.push(message.step);
+
+        // Stream live step to Dashboard
+        if (socket && socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({
+                type: 'LIVE_STEP',
+                sessionId: currentRecording.sessionId,
+                module: currentRecording.module,
+                step: message.step
+            }));
+        }
     } else if (message.action === 'UPLOAD_RECORDING') {
         uploadToApi(currentRecording);
     }
