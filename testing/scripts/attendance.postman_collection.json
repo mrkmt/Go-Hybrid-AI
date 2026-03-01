@@ -1,0 +1,38 @@
+{
+    "info": {
+        "_postman_id": "a1b2c3d4-e5f6-7a8b-9c0d-e1f2a3b4c5d6",
+        "name": "Attendance API",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "Save Attendance",
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"employeeId\": \"staff-A\",\n    \"startDate\": \"2026-05-01\",\n    \"endDate\": \"2026-05-02\",\n    \"treatHolidayAsLeave\": false\n}"
+                },
+                "url": {
+                    "raw": "http://localhost:3000/api/attendance",
+                    "protocol": "http",
+                    "host": [
+                        "localhost"
+                    ],
+                    "port": "3000",
+                    "path": [
+                        "api",
+                        "attendance"
+                    ]
+                }
+            },
+            "response": []
+        }
+    ]
+}

@@ -1,0 +1,76 @@
+# ========================================
+# Go-Hybrid AI - Project Git Ignore
+# ========================================
+
+# 1. External Sources (Ignore the reference logic folder)
+External Logic/
+External\ Logic/
+
+# 2. Dependencies & Installations
+node_modules/
+backend/node_modules/
+frontend/kb-ui/node_modules/
+extension/recorder/node_modules/
+backend/venv/
+backend/venv311/
+backend/env/
+.venv/
+venv/
+env/
+
+# 3. Sensitive Data & Secrets
+.env
+.env.local
+.env.*.local
+backend/.env
+frontend/.env
+*.key
+*.pem
+*.cert
+api_key.txt
+
+# 4. Databases & Storage
+*.db
+*.sqlite
+*.sqlite3
+storage/
+backend/storage/
+reports/
+testing/replayer/screenshots/
+testing/replayer/videos/
+ai-testing-recordings/
+
+# 5. Build Outputs & Temp Files
+dist/
+build/
+out/
+frontend/kb-ui/dist/
+.next/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+tmp/
+temp/
+
+# 6. IDE & System Files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# 7. Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+coverage/
+playwright-report/
+test-results/
+.playwright/
+
+# 8. Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
