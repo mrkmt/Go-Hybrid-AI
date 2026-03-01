@@ -9,7 +9,8 @@ export class BurmeseTranslator {
         if (!this.containsBurmese(text)) return text;
 
         console.log('[Translator] Burmese detected. Converting to Forensic English...');
-        
+        console.log(`[Translator] Input Text: ${text}`);
+
         const prompt = `
             TASK: Translate this software testing note from Burmese/Mixed to English.
             CONTEXT: Forensic bug investigation for HR software.
@@ -18,8 +19,9 @@ export class BurmeseTranslator {
         `;
 
         // Use local AI for translation to save costs
-        const translation = await LocalAIService.generateTest(prompt); 
-        return translation.response;
+        const translation = await LocalAIService.simpleGenerate(prompt);
+        console.log(`[Translator] Translated Result: ${translation}`);
+        return translation;
     }
 
     /**

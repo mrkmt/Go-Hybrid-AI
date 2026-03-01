@@ -35,16 +35,16 @@ export class LocalAIService {
     /**
      * Generates a triage suggestion using skills and agentic orchestration.
      */
-    static async suggestRootCause(context: { 
-        steps: any[], 
-        error: string, 
+    static async suggestRootCause(context: {
+        steps: any[],
+        error: string,
         appVersion: string,
         annotations?: any[],
         expectedResults?: any
     }): Promise<AgentResult> {
         const cacheKey = `triage:${this.hash(context.error)}:${context.appVersion}`;
         const cached = this.responseCache.get(cacheKey);
-        
+
         if (cached && Date.now() - cached.timestamp < cached.ttl) {
             return {
                 response: cached.response,
@@ -57,12 +57,12 @@ export class LocalAIService {
 
         // Use multi-agent approach for more sophisticated analysis
         const result = await AgentOrchestrator.executeRootCauseAnalysis(
-            context.error, 
+            context.error,
             context.steps,
             context.annotations,
             context.expectedResults
         );
-        
+
         // Cache the result
         this.responseCache.set(cacheKey, {
             response: result.response,
@@ -82,7 +82,7 @@ export class LocalAIService {
     static async generateTest(requirements: string): Promise<AgentResult> {
         const cacheKey = `testgen:${this.hash(requirements)}`;
         const cached = this.responseCache.get(cacheKey);
-        
+
         if (cached && Date.now() - cached.timestamp < cached.ttl) {
             return {
                 response: cached.response,
@@ -94,7 +94,7 @@ export class LocalAIService {
         }
 
         const result = await AgentOrchestrator.executeTestGeneration(requirements);
-        
+
         // Cache the result
         this.responseCache.set(cacheKey, {
             response: result.response,
@@ -106,6 +106,34 @@ export class LocalAIService {
         });
 
         return result;
+    }
+
+    /**
+     * Executes a simple generation task without multi-agent overhead.
+     */
+    static async simpleGenerate(prompt: string, model?: string): Promise<string> {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), this.TIMEOUT_MS * 2);
+
+        try {
+            const response = await fetch(this.OLLAMA_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    model: model || this.DEFAULT_MODEL,
+                    prompt: prompt,
+                    stream: false
+                }),
+                signal: controller.signal as any
+            }).finally(() => clearTimeout(timeout));
+
+            if (!response.ok) throw new Error(`Ollama failed: ${response.status}`);
+            const data = await response.json() as any;
+            return data.response;
+        } catch (err: any) {
+            console.error('Simple generation failed:', err.message);
+            return "";
+        }
     }
 
     /**
@@ -121,7 +149,7 @@ export class LocalAIService {
         try {
             const response = await fetch(this.OLLAMA_URL, {
                 method: 'POST',
-                headers: { 
+                headers: {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json',
                 },
@@ -141,7 +169,7 @@ export class LocalAIService {
             return data.response;
         } catch (err: any) {
             console.error('Selector repair failed:', err.message);
-            
+
             // Try fallback model if configured
             if (this.FALLBACK_MODEL) {
                 try {
@@ -156,7 +184,7 @@ export class LocalAIService {
                         }),
                         signal: AbortSignal.timeout(this.TIMEOUT_MS)
                     });
-                    
+
                     if (fallbackResponse.ok) {
                         const data = await fallbackResponse.json() as any;
                         return data.response;
@@ -165,7 +193,7 @@ export class LocalAIService {
                     console.error('Fallback model also failed:', fallbackErr);
                 }
             }
-            
+
             return JSON.stringify({ bestSelector: oldSelector, confidence: 0, error: err.message });
         }
     }
@@ -177,7 +205,7 @@ export class LocalAIService {
         try {
             const response = await fetch(this.EMBED_URL, {
                 method: 'POST',
-                headers: { 
+                headers: {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json',
                 },

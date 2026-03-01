@@ -79,16 +79,16 @@ function App() {
   const exportToPDF = () => {
     const input = document.getElementById('forensic-report');
     if (!input) return;
-    
+
     setLoading(true);
     html2canvas(input, { useCORS: true, backgroundColor: '#0f172a', scale: 2 }).then((canvas) => {
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      
+
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`investigation-${selectedCase?.slice(0,8)}.pdf`);
+      pdf.save(`investigation-${selectedCase?.slice(0, 8)}.pdf`);
       setLoading(false);
     });
   };
@@ -98,8 +98,8 @@ function App() {
       <header className="header">
         <div className="logo">GO-HYBRID AI <span className="tag">FORENSIC UNIT</span></div>
         <div className="status-bar">
-          <span className="status-item">စနစ်: အဆင်သင့်</span>
-          <span className="status-item">OLLAMA: အသင့်ရှိ</span>
+          <span className="status-item">SYSTEM: READY</span>
+          <span className="status-item">OLLAMA: AVAILABLE</span>
           {auditReport && (
             <button className="btn-export" onClick={exportToPDF}>EXPORT REPORT</button>
           )}

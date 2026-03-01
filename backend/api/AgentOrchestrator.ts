@@ -1,4 +1,6 @@
 import fetch from 'node-fetch';
+import * as fs from 'fs';
+import * as path from 'path';
 import { ContextManager } from './ContextManager';
 import { config } from './config';
 import { CloudAIService } from './CloudAIService';
@@ -37,7 +39,23 @@ export class AgentOrchestrator {
     private static PRIMARY_MODEL = config.ai.defaultModel;
     private static FALLBACK_MODEL = config.ai.fallbackModel;
     private static OLLAMA_URL = config.ai.ollamaGenerateUrl;
-    
+
+    private static LOG_FILE = path.join(__dirname, '../../debug_orchestrator.log');
+
+    static log(msg: string) {
+        const line = `[${new Date().toISOString()}] ${msg}\n`;
+        try {
+            fs.appendFileSync(this.LOG_FILE, line);
+        } catch (e) {
+            // ignore fs errors
+        }
+        console.log(msg);
+    }
+
+    static init() {
+        this.log(`[Orchestrator] Configured with PRIMARY_MODEL=${this.PRIMARY_MODEL}, URL=${this.OLLAMA_URL}`);
+    }
+
     // Define agent profiles for multi-agent collaboration
     private static AGENT_PROFILES: AgentProfile[] = [
         {
@@ -73,17 +91,21 @@ export class AgentOrchestrator {
      * 3. Cloud AI (Gemini) - High-level Reasoning & Policy Audit (Expert Opinion).
      */
     static async executeRootCauseAnalysis(
-        error: string, 
+        error: string,
         steps: any[],
         annotations: any[] = [],
         expectedResults: any = {}
     ): Promise<AgentResult> {
-        console.log(`[Hybrid Orchestrator] Starting Multilingual Investigation...`);
+        this.init();
+        this.log(`[Hybrid Orchestrator] Starting Multilingual Investigation...`);
 
         try {
             // STEP 0: Burmese Translation
             const annotationText = JSON.stringify(annotations);
+            console.log(`[DEBUG] Raw Annotations: ${annotationText}`);
             const translatedAnnotations = await BurmeseTranslator.translateToForensicEnglish(annotationText);
+            console.log(`[DEBUG] Translated Annotations: ${translatedAnnotations}`);
+            this.log(`[Orchestrator] Translated Annotations: ${translatedAnnotations}`);
 
             // STEP 1: Local AI (First Responder - Ollama)
             const localPrompt = `
@@ -97,11 +119,12 @@ export class AgentOrchestrator {
                 Target Steps (Last 3): ${JSON.stringify(steps.slice(-3))}
             `;
 
-            console.log(`[Local AI] Parsing data logs via ${this.PRIMARY_MODEL}...`);
+            this.log(`[Local AI] Parsing data logs via ${this.PRIMARY_MODEL}...`);
             const localAnalysis = await this.callModel(this.PRIMARY_MODEL, localPrompt, false);
-            
+            this.log(`[Orchestrator] Local AI Analysis: ${localAnalysis}`);
+
             // STEP 2: Cloud AI (Chief Investigator - Gemini)
-            console.log(`[Cloud AI] Sending evidence to Chief Investigator (Gemini)...`);
+            this.log(`[Cloud AI] Sending evidence to Chief Investigator (Gemini)...`);
             const policySummary = "Policy: Leave calculation must ignore holidays. HR Net Pay rule applies.";
             const cloudVerdict = await CloudAIService.conductFinalAudit(localAnalysis, policySummary);
 
@@ -113,7 +136,7 @@ export class AgentOrchestrator {
                 agent: 'detective-duo'
             };
         } catch (err: any) {
-            console.error('[Hybrid Orchestrator] Investigation failed:', err.message);
+            this.log(`[Hybrid Orchestrator] Investigation failed: ${err.message}\n${err.stack}`);
             return {
                 response: "Detective investigation failed.",
                 modelUsed: 'none',
@@ -134,7 +157,7 @@ export class AgentOrchestrator {
             },
             agents: [AgentType.ARCHITECT, AgentType.CODER, AgentType.REVIEWER]
         };
-        
+
         return this.executeMultiAgentTask(multiAgentTask);
     }
 
@@ -142,23 +165,23 @@ export class AgentOrchestrator {
         try {
             let currentContext = JSON.stringify(task.context);
             let finalResponse = "";
-            
+
             for (const agentType of task.agents) {
                 const agentProfile = this.AGENT_PROFILES.find(a => a.name === agentType);
                 if (!agentProfile) continue;
-                
+
                 const agentPrompt = `${agentProfile.promptPrefix}\n\nTask: ${task.task}\n\nContext: ${currentContext}`;
                 const result = await this.callModel(agentProfile.model, agentPrompt, true);
-                
+
                 currentContext = JSON.stringify({
                     ...task.context,
                     [`${agentType}_output`]: result,
                     previousAgent: agentType
                 });
-                
+
                 finalResponse = result;
             }
-            
+
             return {
                 response: finalResponse,
                 modelUsed: this.PRIMARY_MODEL,
