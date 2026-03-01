@@ -1,6 +1,6 @@
 {
   "name": "go-hybrid-ai-backend",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Backend for AI-assisted web-automation testing platform",
   "main": "api/server.ts",
   "scripts": {
