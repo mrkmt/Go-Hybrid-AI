@@ -1,39 +1,27 @@
-export interface AISkill {
-    name: string;
-    description: string;
-    promptTemplate: (data: any) => string;
-    outputSchema: string; // Encourages structured output
-}
-
 export class SkillRegistry {
-    private static skills: Record<string, AISkill> = {
-        "ROOT_CAUSE_ANALYSIS": {
-            name: "Root Cause Analysis",
-            description: "Analyzes test logs to find the heart of the bug.",
-            promptTemplate: (data) => `Analyze these error logs and steps: ${JSON.stringify(data.logs)}. Output in JSON format with "reason", "fix", "tags" (string array), and "confidenceScore" (0-100).`,
-            outputSchema: '{ "reason": "string", "fix": "string", "tags": "string[]", "confidenceScore": "number" }'
-        },
-        "SELECTOR_REPAIR": {
-            name: "Selector Repair",
-            description: "Proposes robust selectors when a test fails due to UI changes.",
-            promptTemplate: (data) => `The selector "${data.oldSelector}" failed. Given this DOM snapshot: ${data.dom}, suggest a better data-test-id. Output in JSON format with "bestSelector", "confidenceScore", and "tags".`,
-            outputSchema: '{ "bestSelector": "string", "confidenceScore": "number", "tags": "string[]" }'
-        },
-        "ASK_KB": {
-            name: "Ask Knowledge Base",
-            description: "Answers user questions based on the local knowledge base.",
-            promptTemplate: (data) => `User Query: ${data.query}. Context from KB: ${data.context}. Provide a detailed answer. Output JSON with "answer" and "sourceDocs" (array).`,
-            outputSchema: '{ "answer": "string", "sourceDocs": "string[]" }'
-        }
+    private static skills: Record<string, (params: any) => string> = {
+        "ROOT_CAUSE_ANALYSIS": (params) => `
+            Analyze the following error: ${params.error}
+            In context of these steps: ${JSON.stringify(params.steps)}
+            User Notes: ${JSON.stringify(params.annotations)}
+            Provide a diagnostic verdict.
+        `,
+        "SELECTOR_REPAIR": (params) => `
+            FORENSIC TASK: Repair a broken UI selector.
+            
+            Original Selector: ${params.oldSelector}
+            Current DOM Context (Snippet): ${params.dom}
+            
+            INSTRUCTION:
+            1. Find an element in the DOM snippet that matches the purpose of the original selector.
+            2. Suggest a NEW, stable, and unique CSS selector.
+            3. Return valid JSON only: { "bestSelector": "...", "confidence": 0.0-1.0, "reasoning": "..." }
+        `
     };
 
-    static getSkill(name: string): AISkill | undefined {
-        return this.skills[name];
-    }
-
-    static executeSkill(name: string, data: any): string {
-        const skill = this.getSkill(name);
-        if (!skill) throw new Error(`Skill ${name} not found`);
-        return skill.promptTemplate(data);
+    static executeSkill(skillName: string, params: any): string {
+        const skill = this.skills[skillName];
+        if (!skill) throw new Error(`Skill ${skillName} not found.`);
+        return skill(params);
     }
 }
