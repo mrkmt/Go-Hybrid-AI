@@ -181,6 +181,18 @@ export async function initDb(pool: DbClient) {
         );
     `);
 
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS ai_actions (
+            id SERIAL PRIMARY KEY,
+            recording_id UUID REFERENCES recordings(id) ON DELETE CASCADE,
+            action_type VARCHAR(50),
+            params JSONB,
+            result JSONB,
+            status VARCHAR(20),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    `);
+
     try {
         await pool.query(`ALTER TABLE recordings ALTER COLUMN user_id SET DEFAULT 'public';`);
     } catch {
@@ -311,12 +323,19 @@ export function createApp(deps: { pool: DbClient }) {
                 video: standardData.video_url ? await minioService.getPresignedUrl(standardData.video_url) : null,
             };
 
+            // 3. Fetch AI actions related to this case
+            const actions = await deps.pool.query(
+                'SELECT * FROM ai_actions WHERE recording_id = $1 ORDER BY created_at DESC',
+                [executionId]
+            );
+
             res.json({
                 ...auditReport,
                 assets: {
                     execution: executionAssetUrls,
                     standard: standardAssetUrls
-                }
+                },
+                aiActions: actions.rows
             });
         } catch (err: any) {
             console.error('Forensic audit error:', err);

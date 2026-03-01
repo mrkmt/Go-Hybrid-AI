@@ -70,13 +70,21 @@ export class DetectiveDispatcher {
 
         // Dispatch to AI Agent for final verdict based on issue type
         const aiAnalysis = await AgentOrchestrator.executeRootCauseAnalysis(
-            `Issue Type: ${issueType}. HR System Forensic Analysis required. Compare annotations against steps.`,
+            `Issue Type: ${issueType}. HR System Forensic Analysis required.`,
             recording.steps,
             annotations,
             recording.expected_results
         );
 
-        report.verdict = aiAnalysis.response;
+        // Anti-Stuck logic: Flag slow API calls (> 3s)
+        const network = recording.network_requests || [];
+        const slowCalls = network.filter((req: any) => (req.duration || 0) > 3000);
+        if (slowCalls.length > 0) {
+            console.warn(`[Detective] Performance Warning: ${slowCalls.length} slow API calls detected.`);
+            report.verdict = (report.verdict || '') + `\n\n[PERFORMANCE ALERT]: ${slowCalls.length} requests exceeded 3s latency limit. Potential System Hang risk.`;
+        }
+
+        report.verdict = aiAnalysis.cloudVerdict || aiAnalysis.response;
         return report;
     }
 

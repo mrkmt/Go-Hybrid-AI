@@ -181,19 +181,27 @@ function App() {
 
               {/* Bottom Panels */}
               <div className="details-grid">
+                <div className="panel action-log-panel">
+                  <h3>AI AUTONOMOUS ACTIONS</h3>
+                  <div className="action-list">
+                    {!auditReport.aiActions?.length && <div className="no-actions">NO ACTIONS TAKEN YET</div>}
+                    {auditReport.aiActions?.map((action, i) => (
+                      <div key={i} className={`action-card ${action.status}`}>
+                        <div className="action-header-info">
+                          <span className="action-type">{action.action_type.toUpperCase()}</span>
+                          <span className={`status-pill ${action.status}`}>{action.status}</span>
+                        </div>
+                        <div className="action-path">Target: {JSON.parse(action.params).path || 'Database'}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="panel policy-panel">
                   <h3>LOGIC MAPPING</h3>
                   <div className="policy-box">
                     <strong>VIOLATED POLICY:</strong> {auditReport.policyReference || "General HR Policy"}
                     <p>Calculation must comply with "Exclude Holidays" rule as defined in master documentation.</p>
-                  </div>
-                </div>
-                <div className="panel timeline-panel">
-                  <h3>TIMELINE AUDIT</h3>
-                  <div className="timeline">
-                    <div className="event">09:00:01 - POST /api/recordings [201]</div>
-                    <div className="event error">09:00:15 - GET /api/leave/calculate [500]</div>
-                    <div className="event">09:00:16 - Integrity Check Triggered</div>
                   </div>
                 </div>
               </div>

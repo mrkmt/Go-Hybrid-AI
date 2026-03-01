@@ -5,23 +5,44 @@ import { DbClient } from './app';
 
 export class ActionCenterService {
     /**
-     * MCP Bridge: Executes specific actions requested by the AI.
+     * MCP Bridge: Executes specific actions requested by the AI and logs them.
      */
-    static async executeAction(action: string, params: any, pool: DbClient): Promise<any> {
+    static async executeAction(recordingId: string, action: string, params: any, pool: DbClient): Promise<any> {
         console.log(`[ActionCenter] AI is requesting action: ${action.toUpperCase()}`);
+        let result: any;
+        let status: 'success' | 'error' = 'success';
 
-        switch (action) {
-            case 'file_read':
-                return this.readFile(params.path);
-            case 'file_write':
-                return this.writeFile(params.path, params.content);
-            case 'db_query':
-                return this.queryDb(params.query, params.vals, pool);
-            case 'run_test':
-                return this.runTest(params.filename);
-            default:
-                return { error: `Action ${action} not supported.` };
+        try {
+            switch (action) {
+                case 'file_read':
+                    result = await this.readFile(params.path);
+                    break;
+                case 'file_write':
+                    result = await this.writeFile(params.path, params.content);
+                    break;
+                case 'db_query':
+                    result = await this.queryDb(params.query, params.vals, pool);
+                    break;
+                case 'run_test':
+                    result = await this.runTest(params.filename);
+                    break;
+                default:
+                    result = { error: `Action ${action} not supported.` };
+                    status = 'error';
+            }
+        } catch (e: any) {
+            result = { error: e.message };
+            status = 'error';
         }
+
+        // Log action to DB for transparency
+        await pool.query(
+            `INSERT INTO ai_actions (recording_id, action_type, params, result, status) 
+             VALUES ($1, $2, $3::jsonb, $4::jsonb, $5)`,
+            [recordingId, action, JSON.stringify(params), JSON.stringify(result), status]
+        );
+
+        return result;
     }
 
     private static async readFile(filePath: string) {

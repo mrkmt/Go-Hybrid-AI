@@ -258,4 +258,37 @@ body {
 
 .no-live { color: #475569; font-style: italic; }
 
-.divider { border: 0; border-top: 1px solid var(--border-color); margin: 1.5rem 0; }
+.action-list {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.action-card {
+  background: black;
+  padding: 8px;
+  margin-bottom: 8px;
+  border-left: 3px solid var(--accent-yellow);
+}
+
+.action-card.success { border-left-color: var(--accent-green); }
+.action-card.error { border-left-color: var(--accent-red); }
+
+.action-header-info {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.action-type { font-weight: bold; font-size: 0.7rem; }
+.action-path { font-size: 0.6rem; color: #94a3b8; }
+
+.status-pill {
+  font-size: 0.6rem;
+  padding: 1px 4px;
+  text-transform: uppercase;
+}
+
+.status-pill.success { color: var(--accent-green); }
+.status-pill.error { color: var(--accent-red); }
+
+.no-actions { color: #475569; font-size: 0.8rem; text-align: center; }
