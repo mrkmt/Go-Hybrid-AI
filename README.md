@@ -19,6 +19,22 @@
 - **AI:** Ollama (Qwen 2.5) & Gemini 1.5 Flash.
 - **Extension:** Chrome MV3 Recorder with URL-based autodetection.
 
+## 🇲🇲 Burmese Translation (မြန်မာဘာသာ ပြန်ဆိုချက်)
+
+**Go-Hybrid AI** သည် မြန်မာနိုင်ငံရှိ software developer များနှင့် QA အဖွဲ့များအတွက် အထူးရည်ရွယ်ထားသော local-first forensic testing platform ဖြစ်ပါသည်။
+
+### အဓိက လုပ်ဆောင်ချက်များ
+- **Hybrid AI Bridge:** အချက်အလက်လုံခြုံမှုအတွက် Local AI (Ollama) နှင့် ပိုမိုနက်ရှိုင်းသော စစ်ဆေးမှုများအတွက် Cloud AI (Gemini) ကို ပေါင်းစပ်အသုံးပြုထားသည်။
+- **Forensic Dashboard:** Admin standard နှင့် လက်ရှိ failure ကို ယှဉ်ကြည့်နိုင်သော ၃-ဖက်မြင် visual audit စနစ်။
+- **Real-time Streaming:** Browser တွင် record လုပ်နေစဉ် dashboard တွင် ချက်ချင်းမြင်တွေ့နိုင်သော WebSocket စနစ်။
+- **Self-Healing Core:** UI ပြောင်းလဲမှုများကြောင့် test များမပျက်စီးစေရန် AI က အလိုအလျောက် ပြင်ဆင်ပေးသည့် စနစ်။
+
+### စုံထောက် workflow (Investigation Workflow)
+1. **Capture:** "ပြီးပြည့်စုံသော run" တစ်ခုကို record လုပ်ပြီး Admin Standard အဖြစ် သတ်မှတ်ပါ။
+2. **Execute:** Automated test များ run ပါ သို့မဟုတ် manual failure များကို capture လုပ်ပါ။
+3. **Audit:** CLI သို့မဟုတ် Dashboard ကိုသုံး၍ Standard နှင့် ယှဉ်စစ်ပါ။
+4. **Verdict:** ကုမ္ပဏီ၏ မူဝါဒများ (MD files) အပေါ် မူတည်၍ AI က **[GUILTY] (အမှား)** သို့မဟုတ် **[CLEAR] (အမှန်)** ဖြစ်ကြောင်း ဆုံးဖြတ်ပေးပါမည်။
+
 ## 🚦 Quick Setup
 
 1. **Prerequisites:** Install Node.js, PostgreSQL, MinIO, and Ollama.

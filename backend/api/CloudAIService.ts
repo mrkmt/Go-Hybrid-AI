@@ -28,6 +28,7 @@ export class CloudAIService {
             2. Issue a Verdict: [GUILTY] (Confirmed Bug) or [CLEAR] (Pass).
             3. Provide a human-readable explanation in a 'Digital Detective' tone.
             4. If GUILTY, point out the exact policy paragraph that was violated.
+            5. IMPORTANT: Provide the entire explanation in BOTH English and Burmese (🇲🇲 မြန်မာဘာသာ).
         `;
 
         try {

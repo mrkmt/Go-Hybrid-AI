@@ -82,9 +82,9 @@ function App() {
       <header className="header">
         <div className="logo">GO-HYBRID AI <span className="tag">FORENSIC UNIT</span></div>
         <div className="status-bar">
-          <span className="status-item">SYSTEM: ONLINE</span>
-          <span className="status-item">OLLAMA: READY</span>
-          <span className="status-item">GEMINI: CONNECTED</span>
+          <span className="status-item">စနစ်: အဆင်သင့် (ONLINE)</span>
+          <span className="status-item">OLLAMA: အသင့်ရှိ (READY)</span>
+          <span className="status-item">GEMINI: ချိတ်ဆက်ပြီး (CONNECTED)</span>
         </div>
       </header>
 
