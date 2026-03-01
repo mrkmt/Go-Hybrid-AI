@@ -28,7 +28,8 @@ export type DbClient = {
 // Zod validation schemas
 const RecordingSchema = z.object({
     sessionId: z.string().optional(),
-    module: z.string().default('default'), // Changed from 'globalhr' to 'default'
+    module: z.string().default('default'), 
+    isAdmin: z.boolean().default(false), // Official Core 1 flag
     appVersion: z.string().optional(),
     environment: z.record(z.string(), z.unknown()).optional(),
     steps: z.array(z.unknown()).min(1, 'Steps array cannot be empty'),
@@ -124,13 +125,15 @@ export async function initDb(pool: DbClient) {
             manual_snapshot_url TEXT,
             annotations JSONB DEFAULT '[]',
             expected_results JSONB DEFAULT '{}',
+            is_admin BOOLEAN DEFAULT false,
             user_id VARCHAR(255) DEFAULT 'public',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
     `);
 
-    // Ensure columns exist if table was already created
+    // Ensure columns exist
     try {
+        await pool.query(`ALTER TABLE recordings ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT false;`);
         await pool.query(`ALTER TABLE recordings ADD COLUMN IF NOT EXISTS video_url TEXT;`);
         await pool.query(`ALTER TABLE recordings ADD COLUMN IF NOT EXISTS screenshot_url TEXT;`);
         await pool.query(`ALTER TABLE recordings ADD COLUMN IF NOT EXISTS manual_snapshot_url TEXT;`);
@@ -649,7 +652,7 @@ export function createApp(deps: { pool: DbClient }) {
                 details: validationResult.error.issues
             });
         }
-        const { sessionId, module, appVersion, environment, steps, networkRequests, annotations, expectedResults } = validationResult.data;
+        const { sessionId, module, isAdmin, appVersion, environment, steps, networkRequests, annotations, expectedResults } = validationResult.data;
 
         const id = uuidv4();
 
@@ -660,7 +663,7 @@ export function createApp(deps: { pool: DbClient }) {
                     const objectId = await ObjectRepoService.ensureObject(deps.pool, {
                         selector: step.selector,
                         name: step.elementName,
-                        appProfile: module // Correctly using module name
+                        appProfile: module
                     });
                     return { ...step, target_object_id: objectId };
                 }
@@ -670,8 +673,8 @@ export function createApp(deps: { pool: DbClient }) {
             await deps.pool.query(
                 `INSERT INTO recordings (
                     id, session_id, app_version, environment, steps, network_requests, 
-                    annotations, expected_results, user_id
-                ) VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6::jsonb, $7::jsonb, $8::jsonb, $9)`,
+                    annotations, expected_results, is_admin, user_id
+                ) VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6::jsonb, $7::jsonb, $8::jsonb, $9, $10)`,
                 [
                     id,
                     sessionId || '',
@@ -681,6 +684,7 @@ export function createApp(deps: { pool: DbClient }) {
                     JSON.stringify(networkRequests || []),
                     JSON.stringify(annotations || []),
                     JSON.stringify(expectedResults || {}),
+                    isAdmin || false,
                     'public'
                 ]
             );
@@ -698,7 +702,7 @@ export function createApp(deps: { pool: DbClient }) {
 
         try {
             const { rows } = await deps.pool.query(
-                `SELECT id, session_id, app_version, environment, video_url, screenshot_url, manual_snapshot_url, created_at 
+                `SELECT id, session_id, app_version, environment, video_url, screenshot_url, manual_snapshot_url, is_admin, created_at 
                  FROM recordings 
                  ORDER BY created_at DESC 
                  LIMIT $1 OFFSET $2`,
