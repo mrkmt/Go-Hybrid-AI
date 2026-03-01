@@ -57,6 +57,35 @@ export class MinioService {
         }
     }
 
+    async deleteFolder(prefix: string): Promise<void> {
+        return new Promise((resolve, reject) => {
+            const objectsList: string[] = [];
+            const stream = this.client.listObjectsV2(this.bucketName, prefix, true);
+
+            stream.on('data', (obj) => {
+                if (obj.name) objectsList.push(obj.name);
+            });
+
+            stream.on('error', (err) => {
+                console.error('MinIO list error:', err);
+                reject(err);
+            });
+
+            stream.on('end', async () => {
+                try {
+                    if (objectsList.length > 0) {
+                        await this.client.removeObjects(this.bucketName, objectsList);
+                        console.log(`[MinIO] Deleted ${objectsList.length} objects for prefix: ${prefix}`);
+                    }
+                    resolve();
+                } catch (err) {
+                    console.error('MinIO bulk delete error:', err);
+                    reject(err);
+                }
+            });
+        });
+    }
+
     async getFileBuffer(objectName: string): Promise<Buffer> {
         return new Promise((resolve, reject) => {
             const chunks: Buffer[] = [];

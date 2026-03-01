@@ -54,9 +54,12 @@ export class IntegrityService {
 
         // 4. Determine Verdict
         let verdict: 'GUILTY' | 'CLEAR' | 'STUCK' = 'CLEAR';
-        if (aiAnalysis.response.toLowerCase().includes('violation') || aiAnalysis.response.toLowerCase().includes('bug')) {
+        const lowerResponse = aiAnalysis.response.toLowerCase();
+        if (lowerResponse.includes('violation') || lowerResponse.includes('bug') ||
+            lowerResponse.includes('mismatch') || lowerResponse.includes('error') ||
+            lowerResponse.includes('wrong') || lowerResponse.includes('failure')) {
             verdict = 'GUILTY';
-        } else if (aiAnalysis.response.toLowerCase().includes('stuck') || aiAnalysis.response.toLowerCase().includes('timeout')) {
+        } else if (lowerResponse.includes('stuck') || lowerResponse.includes('timeout')) {
             verdict = 'STUCK';
         }
 

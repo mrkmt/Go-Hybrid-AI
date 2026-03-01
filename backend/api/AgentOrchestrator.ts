@@ -110,13 +110,15 @@ export class AgentOrchestrator {
             // STEP 1: Local AI (First Responder - Ollama)
             const localPrompt = `
                 ### Task: Identify Anomalies for Chief Investigator
+                CRITICAL: Pay special attention to USER ANNOTATIONS. These are explicit bug reports from a human tester.
                 Compare the following execution steps with user annotations (translated). 
-                Focus on: API response codes, calculation mismatches, and stuck UI states.
-                Provide a CONCISE summary of findings.
+                If an annotation says something is "wrong", "failure", or a "mismatch", consider it a high-probability BUG.
                 
                 Error Trace: ${error}
                 User Annotations: ${translatedAnnotations}
                 Target Steps (Last 3): ${JSON.stringify(steps.slice(-3))}
+                
+                Provide a CONCISE summary of findings. If you see a bug mentioned in annotations, use the word "BUG" or "VIOLATION" in your summary.
             `;
 
             this.log(`[Local AI] Parsing data logs via ${this.PRIMARY_MODEL}...`);

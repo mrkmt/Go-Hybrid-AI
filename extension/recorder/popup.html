@@ -1,44 +1,54 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <style>
-        body { width: 200px; padding: 10px; font-family: sans-serif; }
-        button { width: 100%; margin: 5px 0; padding: 10px; cursor: pointer; }
-        .start { background: #4CAF50; color: white; border: none; }
-        .stop { background: #f44336; color: white; border: none; }
+        body {
+            width: 200px;
+            padding: 10px;
+            font-family: sans-serif;
+        }
+
+        button {
+            width: 100%;
+            margin: 5px 0;
+            padding: 10px;
+            cursor: pointer;
+        }
+
+        .start {
+            background: #4CAF50;
+            color: white;
+            border: none;
+        }
+
+        .stop {
+            background: #f44336;
+            color: white;
+            border: none;
+        }
     </style>
 </head>
+
 <body>
     <h3>AI-Aero Recorder</h3>
     <label style="font-size: 12px;">API Key (optional)</label>
     <input id="apiKey" type="password" style="width:100%; padding:6px; margin:4px 0 8px;" placeholder="(optional)" />
 
+    <div id="status" style="font-size: 11px; color: #666; margin-bottom: 5px;">Ready</div>
     <button id="start" class="start">Start Recording</button>
-    <button id="stop" class="stop">Stop Recording</button>
+    <button id="stop" class="stop" style="display:none;">Stop Recording</button>
+
+    <div id="noteArea" style="display:none; margin-top: 10px; border-top: 1px solid #eee; padding-top: 5px;">
+        <input id="noteText" type="text" placeholder="Add note (Burmese ok)..."
+            style="width:100%; padding:6px; margin:4px 0;" />
+        <button id="addNote" style="background:#2196F3; color:white; border:none; padding:5px; font-size:12px;">Add
+            Note</button>
+    </div>
+
     <button id="upload">Upload Recording</button>
 
-    <script>
-        const apiKeyEl = document.getElementById('apiKey');
-
-        chrome.storage.local.get({ apiKey: '' }, (data) => {
-            apiKeyEl.value = data.apiKey;
-        });
-
-        apiKeyEl.addEventListener('input', () => chrome.storage.local.set({ apiKey: apiKeyEl.value }));
-
-        document.getElementById('start').onclick = () => {
-            chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
-                chrome.tabs.sendMessage(tabs[0].id, {action: 'START_RECORDING'});
-            });
-        };
-        document.getElementById('stop').onclick = () => {
-            chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
-                chrome.tabs.sendMessage(tabs[0].id, {action: 'STOP_RECORDING'});
-            });
-        };
-        document.getElementById('upload').onclick = () => {
-            chrome.runtime.sendMessage({action: 'UPLOAD_RECORDING'});
-        };
-    </script>
+    <script src="popup.js"></script>
 </body>
+
 </html>

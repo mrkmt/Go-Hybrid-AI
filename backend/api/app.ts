@@ -29,7 +29,7 @@ export type DbClient = {
 // Zod validation schemas
 const RecordingSchema = z.object({
     sessionId: z.string().optional(),
-    module: z.string().default('default'), 
+    module: z.string().default('default'),
     isAdmin: z.boolean().default(false), // Official Core 1 flag
     appVersion: z.string().optional(),
     environment: z.record(z.string(), z.unknown()).optional(),
@@ -244,19 +244,19 @@ export function createApp(deps: { pool: DbClient }) {
     app.get('/api/health', async (_req, res) => {
         try {
             await deps.pool.query('SELECT 1 as ok');
-            res.json({ 
+            res.json({
                 name: 'Go-Hybrid AI API',
-                ok: true, 
-                db: true, 
+                ok: true,
+                db: true,
                 ai: config.ai.ollamaGenerateUrl,
                 minio: config.minio.endpoint,
                 time: new Date().toISOString(),
                 version: '1.1.0'
             });
         } catch (e) {
-            res.status(503).json({ 
-                ok: false, 
-                db: false, 
+            res.status(503).json({
+                ok: false,
+                db: false,
                 time: new Date().toISOString(),
                 error: 'Database connection failed'
             });
@@ -284,7 +284,7 @@ export function createApp(deps: { pool: DbClient }) {
             const recentRecordings = await deps.pool.query(
                 'SELECT COUNT(*) FROM recordings WHERE created_at > NOW() - INTERVAL \'24 hours\''
             );
-            
+
             res.json({
                 totalRecordings: parseInt(recordingsCount.rows[0].count),
                 totalAiLogs: parseInt(aiLogsCount.rows[0].count),
@@ -307,7 +307,7 @@ export function createApp(deps: { pool: DbClient }) {
 
         try {
             const auditReport = await IntegrityService.performForensicAudit(standardId, executionId, deps.pool);
-            
+
             // Get asset paths
             const executionData = (await deps.pool.query('SELECT screenshot_url, video_url, manual_snapshot_url FROM recordings WHERE id = $1', [executionId])).rows[0];
             const standardData = (await deps.pool.query('SELECT screenshot_url, video_url FROM recordings WHERE id = $1', [standardId])).rows[0];
@@ -380,7 +380,7 @@ export function createApp(deps: { pool: DbClient }) {
     // Asset upload endpoint (MinIO)
     app.post('/api/recordings/:id/assets', writeLimiter, upload.single('file'), async (req, res) => {
         if (!requireApiKey(req, res)) return;
-        
+
         const id = req.params.id;
         if (!isUuid(id)) {
             return res.status(400).json({ error: 'Invalid recording id' });
@@ -415,10 +415,10 @@ export function createApp(deps: { pool: DbClient }) {
                 [objectName, id]
             );
 
-            res.json({ 
-                message: 'Asset uploaded successfully', 
+            res.json({
+                message: 'Asset uploaded successfully',
                 path: objectName,
-                type 
+                type
             });
         } catch (err: any) {
             console.error('Asset upload error:', err);
@@ -481,7 +481,7 @@ export function createApp(deps: { pool: DbClient }) {
     // Triage endpoint with AI rate limiting
     app.post('/api/triage/:id', writeLimiter, aiLimiter, async (req, res) => {
         if (!requireApiKey(req, res)) return;
-        
+
         const id = req.params.id;
         if (!isUuid(id)) {
             return res.status(400).json({ error: 'Invalid recording id (uuid expected)' });
@@ -506,16 +506,16 @@ export function createApp(deps: { pool: DbClient }) {
             }
 
             const recording = rows[0];
-            
+
             // Check cache for similar errors
             const cacheKey = `triage:${error.substring(0, 50)}`;
             const cached = await getFromCache(cacheKey);
             if (cached) {
-                return res.json({ 
-                    suggestion: cached.suggestion, 
-                    modelUsed: cached.modelUsed, 
+                return res.json({
+                    suggestion: cached.suggestion,
+                    modelUsed: cached.modelUsed,
                     status: cached.status,
-                    fromCache: true 
+                    fromCache: true
                 });
             }
 
@@ -539,11 +539,11 @@ export function createApp(deps: { pool: DbClient }) {
                 status: result.status
             }, 1800); // 30 minutes cache
 
-            res.json({ 
-                suggestion: result.response, 
-                modelUsed: result.modelUsed, 
+            res.json({
+                suggestion: result.response,
+                modelUsed: result.modelUsed,
                 status: result.status,
-                fromCache: false 
+                fromCache: false
             });
         } catch (err: any) {
             console.error('Triage error:', err);
@@ -571,7 +571,7 @@ export function createApp(deps: { pool: DbClient }) {
             }
 
             const docs = await KnowledgeService.findRelevantDocs(q);
-            
+
             // Cache the result
             await setCache(cacheKey, docs, 3600); // 1 hour cache
 
@@ -586,7 +586,7 @@ export function createApp(deps: { pool: DbClient }) {
     // Test Generation endpoint
     app.post('/api/generate-test', aiLimiter, async (req, res) => {
         if (!requireApiKey(req, res)) return;
-        
+
         const { requirements } = req.body;
         if (!requirements || typeof requirements !== 'string') {
             return res.status(400).json({ error: 'Requirements are required and must be a string' });
@@ -594,13 +594,13 @@ export function createApp(deps: { pool: DbClient }) {
 
         try {
             const result = await LocalAIService.generateTest(requirements);
-            
+
             await deps.pool.query(
                 'INSERT INTO ai_logs (user_id, model, prompt, response) VALUES ($1, $2, $3, $4)',
                 ['public', result.modelUsed, `TEST_GENERATION: ${requirements}`, result.response]
             );
 
-            res.json({ 
+            res.json({
                 testCode: result.response,
                 modelUsed: result.modelUsed,
                 status: result.status,
@@ -615,9 +615,9 @@ export function createApp(deps: { pool: DbClient }) {
     // Reporting endpoints
     app.post('/api/reports/generate', aiLimiter, async (req, res) => {
         if (!requireApiKey(req, res)) return;
-        
+
         const filter: ReportFilter = req.body;
-        
+
         try {
             const report = await reportingService.generateTestReport(filter);
             res.json(report);
@@ -639,7 +639,7 @@ export function createApp(deps: { pool: DbClient }) {
 
     app.get('/api/reports/:id', async (req, res) => {
         const id = req.params.id;
-        
+
         try {
             const report = await reportingService.getReportById(id);
             if (!report) {
@@ -654,7 +654,7 @@ export function createApp(deps: { pool: DbClient }) {
 
     app.post('/api/reports/ai-analysis', aiLimiter, async (req, res) => {
         if (!requireApiKey(req, res)) return;
-        
+
         const { recordingIds } = req.body;
         if (!recordingIds || !Array.isArray(recordingIds)) {
             return res.status(400).json({ error: 'recordingIds array is required' });
@@ -672,7 +672,7 @@ export function createApp(deps: { pool: DbClient }) {
     // AI Logs endpoint
     app.post('/api/ai-logs', writeLimiter, async (req, res) => {
         if (!requireApiKey(req, res)) return;
-        
+
         const validationResult = AiLogSchema.safeParse(req.body);
         if (!validationResult.success) {
             return res.status(400).json({
@@ -697,7 +697,7 @@ export function createApp(deps: { pool: DbClient }) {
     // Recordings endpoints
     app.post('/api/recordings', writeLimiter, async (req, res) => {
         if (!requireApiKey(req, res)) return;
-        
+
         const validationResult = RecordingSchema.safeParse(req.body);
         if (!validationResult.success) {
             return res.status(400).json({
@@ -761,12 +761,12 @@ export function createApp(deps: { pool: DbClient }) {
                  LIMIT $1 OFFSET $2`,
                 [limit, offset]
             );
-            
+
             // Get total count for pagination
             const countResult = await deps.pool.query('SELECT COUNT(*) FROM recordings');
             const total = parseInt(countResult.rows[0].count);
 
-            res.json({ 
+            res.json({
                 data: rows,
                 pagination: {
                     page,
@@ -807,7 +807,7 @@ export function createApp(deps: { pool: DbClient }) {
     // Delete recording endpoint
     app.delete('/api/recordings/:id', writeLimiter, async (req, res) => {
         if (!requireApiKey(req, res)) return;
-        
+
         const id = req.params.id;
         if (!isUuid(id)) {
             return res.status(400).json({ error: 'Invalid recording id (uuid expected)' });
@@ -816,23 +816,18 @@ export function createApp(deps: { pool: DbClient }) {
         try {
             // Get asset paths before deleting
             const { rows } = await deps.pool.query('SELECT video_url, screenshot_url, manual_snapshot_url FROM recordings WHERE id = $1', [id]);
-            
+
             const result: any = await deps.pool.query(
                 'DELETE FROM recordings WHERE id = $1',
                 [id]
             );
-            
+
             if ((result as any).rowCount === 0) {
                 return res.status(404).json({ error: 'Recording not found' });
             }
 
-            // Cleanup MinIO assets
-            if (rows.length > 0) {
-                const { video_url, screenshot_url, manual_snapshot_url } = rows[0];
-                if (video_url) await minioService.deleteFile(video_url).catch(() => {});
-                if (screenshot_url) await minioService.deleteFile(screenshot_url).catch(() => {});
-                if (manual_snapshot_url) await minioService.deleteFile(manual_snapshot_url).catch(() => {});
-            }
+            // Cleanup MinIO assets (all assets in the folder named after the ID)
+            await minioService.deleteFolder(id).catch((e) => console.warn('MinIO folder cleanup failed:', e));
 
             res.json({ message: 'Recording and associated assets deleted' });
         } catch (err: any) {
@@ -844,7 +839,7 @@ export function createApp(deps: { pool: DbClient }) {
     // Global error handler
     app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
         console.error('Unhandled error:', err);
-        res.status(500).json({ 
+        res.status(500).json({
             error: 'Internal server error',
             details: process.env.NODE_ENV === 'development' ? err.message : undefined
         });

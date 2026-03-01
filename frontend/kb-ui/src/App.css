@@ -302,3 +302,25 @@ body {
 .status-pill.error { color: var(--accent-red); }
 
 .no-actions { color: #475569; font-size: 0.8rem; text-align: center; }
+
+.case-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-delete {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 0 4px;
+  line-height: 1;
+  transition: all 0.2s;
+}
+
+.btn-delete:hover {
+  color: var(--accent-red);
+  transform: scale(1.2);
+}

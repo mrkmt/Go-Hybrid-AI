@@ -172,6 +172,8 @@ export class LocalAIService {
 
             // Try fallback model if configured
             if (this.FALLBACK_MODEL) {
+                const fallbackController = new AbortController();
+                const fallbackTimeout = setTimeout(() => fallbackController.abort(), this.TIMEOUT_MS);
                 try {
                     const fallbackResponse = await fetch(this.OLLAMA_URL, {
                         method: 'POST',
@@ -182,8 +184,8 @@ export class LocalAIService {
                             stream: false,
                             format: "json"
                         }),
-                        signal: AbortSignal.timeout(this.TIMEOUT_MS)
-                    });
+                        signal: fallbackController.signal as any
+                    }).finally(() => clearTimeout(fallbackTimeout));
 
                     if (fallbackResponse.ok) {
                         const data = await fallbackResponse.json() as any;
@@ -202,6 +204,9 @@ export class LocalAIService {
      * Gets embeddings for semantic search in local knowledge.
      */
     static async getEmbeddings(text: string): Promise<number[]> {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), this.TIMEOUT_MS);
+
         try {
             const response = await fetch(this.EMBED_URL, {
                 method: 'POST',
@@ -213,8 +218,8 @@ export class LocalAIService {
                     model: this.EMBED_MODEL,
                     prompt: text
                 }),
-                signal: AbortSignal.timeout(this.TIMEOUT_MS)
-            });
+                signal: controller.signal as any
+            }).finally(() => clearTimeout(timeout));
 
             if (!response.ok) {
                 throw new Error(`Embedding API returned ${response.status}`);

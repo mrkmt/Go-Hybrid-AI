@@ -22,6 +22,7 @@ interface AuditReport {
   };
   aiActions?: any[];
   policyReference?: string;
+  annotations?: any[];
 }
 
 function App() {
@@ -44,6 +45,19 @@ function App() {
         const data = JSON.parse(event.data);
         if (data.type === 'LIVE_STEP') {
           setLiveSteps(prev => [data.step, ...prev].slice(0, 10));
+          // Show temporary syncing status
+          const bar = document.querySelector('.status-bar');
+          if (bar) {
+            const sync = document.createElement('span');
+            sync.className = 'status-item sync-flash';
+            sync.innerText = '📡 SYNCING...';
+            sync.style.color = '#3b82f6';
+            if (!document.querySelector('.sync-flash')) bar.appendChild(sync);
+            setTimeout(() => sync.remove(), 2000);
+          }
+        } else if (data.type === 'UPLOAD_COMPLETE') {
+          console.log('🔄 Upload complete detected. Refreshing...');
+          fetchRecordings();
         }
       } catch (e) {
         console.error('[Dashboard] WS Message Parse Error', e);
@@ -81,6 +95,33 @@ function App() {
     fetchRecordings();
   };
 
+  const deleteCase = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    if (!window.confirm('Are you sure you want to delete this case and all its assets?')) return;
+
+    try {
+      const res = await fetch(`http://localhost:3000/api/recordings/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'x-api-key': 'aero-secure-key-2024'
+        }
+      });
+      if (res.ok) {
+        fetchRecordings();
+        if (selectedCase === id) {
+          setSelectedCase(null);
+          setAuditReport(null);
+        }
+      } else {
+        const err = await res.json();
+        alert(`Delete failed: ${err.error}`);
+      }
+    } catch (err) {
+      console.error('Delete error', err);
+      alert('Delete failed');
+    }
+  };
+
   const runAudit = async (caseId: string) => {
     setLoading(true);
     try {
@@ -90,7 +131,12 @@ function App() {
 
       const res = await fetch(`http://localhost:3000/api/audit/${caseId}?standardId=${standardId}`);
       const data = await res.json();
-      setAuditReport(data);
+
+      // Fetch full recording to get annotations
+      const recRes = await fetch(`http://localhost:3000/api/recordings/${caseId}`);
+      const recData = await recRes.json();
+
+      setAuditReport({ ...data, annotations: recData.annotations });
       setSelectedCase(caseId);
     } catch (err) {
       console.error('Audit failed', err);
@@ -150,7 +196,10 @@ function App() {
               <div key={r.id} className={`case-item ${selectedCase === r.id ? 'active' : ''} ${r.is_admin ? 'standard-item' : ''}`} onClick={() => runAudit(r.id)}>
                 <div className="case-header">
                   <div className="case-id">{r.id.slice(0, 8)}</div>
-                  {r.is_admin && <span className="admin-badge">ADMIN</span>}
+                  <div className="case-actions">
+                    {r.is_admin && <span className="admin-badge">ADMIN</span>}
+                    <button className="btn-delete" onClick={(e) => deleteCase(e, r.id)} title="Delete Case">✕</button>
+                  </div>
                 </div>
                 <div className="case-module">{r.app_version}</div>
               </div>
@@ -208,13 +257,28 @@ function App() {
                     ))}
                   </div>
                 </div>
-                <div className="panel policy-panel">
-                  <h3>LOGIC MAPPING</h3>
-                  <div className="policy-box">
-                    <strong>POLICY:</strong> {auditReport.policyReference || "General"}
+              </div>
+
+              {auditReport.annotations && auditReport.annotations.length > 0 && (
+                <div className="panel annotations-panel" style={{ marginTop: '20px' }}>
+                  <h3>FORENSIC NOTES & ANNOTATIONS</h3>
+                  <div className="annotations-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '15px' }}>
+                    {auditReport.annotations.map((note: any, i: number) => (
+                      <div key={i} className="annotation-card" style={{ background: '#1e293b', padding: '10px', borderRadius: '8px', border: '1px solid #334155' }}>
+                        <div className="note-text" style={{ color: '#f8fafc', fontWeight: 'bold', marginBottom: '8px' }}>{note.text}</div>
+                        {note.screenshot && (
+                          <div className="note-screenshot" style={{ borderRadius: '4px', overflow: 'hidden' }}>
+                            <img src={note.screenshot} alt="Annotation context" style={{ width: '100%', display: 'block' }} />
+                          </div>
+                        )}
+                        <div className="note-time" style={{ fontSize: '10px', color: '#94a3b8', marginTop: '5px' }}>
+                          {new Date(note.timestamp).toLocaleTimeString()}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              </div>
+              )}
             </>
           ) : (
             <div className="empty-state">SELECT CASE FOR AUDIT</div>
