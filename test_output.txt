@@ -1,0 +1,49 @@
+FAIL backend/api/real_integration.test.ts
+  ÔùÅ Test suite failed to run
+
+    Jest encountered an unexpected token
+
+    Jest failed to parse a file. This happens e.g. when your code or its dependencies use non-standard JavaScript syntax, or when Jest is not configured to support such syntax.
+
+    Out of the box Jest supports Babel, which will be used to transform your files into valid JS based on your Babel configuration.
+
+    By default "node_modules" folder is ignored by transformers.
+
+    Here's what you can do:
+     ÔÇó If you are trying to use ECMAScript Modules, see https://jestjs.io/docs/ecmascript-modules for how to enable it.
+     ÔÇó If you are trying to use TypeScript, see https://jestjs.io/docs/getting-started#using-typescript
+     ÔÇó To have some of your "node_modules" files transformed, you can specify a custom "transformIgnorePatterns" in your config.
+     ÔÇó If you need a custom transformation specify a "transform" option in your config.
+     ÔÇó If you simply want to mock your non-JS modules (e.g. binary assets) you can stub them out with the "moduleNameMapper" config option.
+
+    You'll find more details and examples of these config options in the docs:
+    https://jestjs.io/docs/configuration
+    For information about custom transformations, see:
+    https://jestjs.io/docs/code-transformation
+
+    Details:
+
+    D:\KMT\My class\AI\ai_37\backend\node_modules\pixelmatch\index.js:21
+    export default function pixelmatch(img1, img2, output, width, height, options = {}) {
+    ^^^^^^
+
+    SyntaxError: Unexpected token 'export'
+
+      1 | import fs from 'fs';
+      2 | import { PNG } from 'pngjs';
+    > 3 | import pixelmatch from 'pixelmatch';
+        | ^
+      4 | import { minioService } from './MinioService';
+      5 |
+      6 | export class VisualForensicsService {
+
+      at Runtime.createScriptFromCode (node_modules/jest-runtime/build/index.js:1505:14)
+      at Object.<anonymous> (backend/api/VisualForensicsService.ts:3:1)
+      at Object.<anonymous> (backend/api/app.ts:16:1)
+      at Object.<anonymous> (backend/api/real_integration.test.ts:3:1)
+
+Test Suites: 1 failed, 1 total
+Tests:       0 total
+Snapshots:   0 total
+Time:        4.354 s
+Ran all test suites matching /backend\\api\\real_integration.test.ts/i.

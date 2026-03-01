@@ -29,6 +29,13 @@ jest.mock('./LocalAIService', () => ({
     }
 }));
 
+// Mock VisualForensicsService to avoid pixelmatch ESM issues
+jest.mock('./VisualForensicsService', () => ({
+    VisualForensicsService: {
+        generateVisualDiff: jest.fn().mockResolvedValue('forensics/test/diff.png')
+    }
+}));
+
 /**
  * Mock database client for testing
  */

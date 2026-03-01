@@ -62,9 +62,15 @@
     "modulePathIgnorePatterns": [
       "<rootDir>/backend/node_modules"
     ],
+    "transformIgnorePatterns": [
+      "node_modules/(?!pixelmatch)"
+    ],
     "collectCoverageFrom": [
       "backend/**/*.ts",
-      "!backend/**/node_modules/**"
+      "!backend/**/node_modules/**",
+      "!backend/api/integration.test.ts",
+      "!backend/api/external_smoke.ts",
+      "!backend/api/diagnose.ts"
     ]
   }
 }
