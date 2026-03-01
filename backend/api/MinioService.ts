@@ -60,12 +60,11 @@ export class MinioService {
     async getFileBuffer(objectName: string): Promise<Buffer> {
         return new Promise((resolve, reject) => {
             const chunks: Buffer[] = [];
-            this.client.getObject(this.bucketName, objectName, (err, stream) => {
-                if (err) return reject(err);
+            this.client.getObject(this.bucketName, objectName).then((stream) => {
                 stream.on('data', (chunk) => chunks.push(chunk));
                 stream.on('end', () => resolve(Buffer.concat(chunks)));
                 stream.on('error', reject);
-            });
+            }).catch(reject);
         });
     }
 }

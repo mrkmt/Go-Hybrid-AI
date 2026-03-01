@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import pdf from 'pdf-parse';
+const pdf = require('pdf-parse');
 import { config } from './config';
 import { LocalAIService } from './LocalAIService';
 
