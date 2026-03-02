@@ -59,6 +59,9 @@
     "roots": [
       "<rootDir>/backend"
     ],
+    "testMatch": [
+      "**/*.test.ts"
+    ],
     "modulePathIgnorePatterns": [
       "<rootDir>/backend/node_modules"
     ],
