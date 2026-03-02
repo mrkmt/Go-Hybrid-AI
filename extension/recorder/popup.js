@@ -70,7 +70,17 @@ stopBtn.onclick = () => {
 document.getElementById('upload').onclick = () => {
     statusEl.innerText = 'Uploading...';
     chrome.runtime.sendMessage({ action: 'UPLOAD_RECORDING' }, (response) => {
-        statusEl.innerText = 'Uploaded ✅';
-        setTimeout(() => statusEl.innerText = 'Ready', 2000);
+        if (chrome.runtime.lastError) {
+            statusEl.innerText = '❌ Upload failed';
+            statusEl.style.color = '#f44336';
+            console.error('Upload error:', chrome.runtime.lastError);
+        } else {
+            statusEl.innerText = 'Uploaded ✅';
+            statusEl.style.color = '#4CAF50';
+            setTimeout(() => {
+                statusEl.innerText = 'Ready';
+                statusEl.style.color = '#666';
+            }, 2000);
+        }
     });
 };
