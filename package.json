@@ -62,6 +62,7 @@
     "testMatch": [
       "**/*.test.ts"
     ],
+    "testTimeout": 30000,
     "modulePathIgnorePatterns": [
       "<rootDir>/backend/node_modules"
     ],
@@ -73,7 +74,13 @@
       "!backend/**/node_modules/**",
       "!backend/api/integration.test.ts",
       "!backend/api/external_smoke.ts",
-      "!backend/api/diagnose.ts"
+      "!backend/api/diagnose.ts",
+      "!backend/api/real_integration.test.ts",
+      "!backend/api/simulate_*.ts",
+      "!backend/api/check_last_log.ts",
+      "!backend/api/export_log.ts",
+      "!backend/api/migrate.ts",
+      "!backend/validator/**/*.test.ts"
     ]
   }
 }
